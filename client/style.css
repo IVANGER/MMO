@@ -1,0 +1,790 @@
+/* ============================================================
+   БАЗА
+   ============================================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   AUTH / CHARACTER (центрированные экраны)
+   ============================================================ */
+
+.auth-screen,
+.character-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.auth-box,
+.character-box {
+  width: 100%;
+  max-width: 380px;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.character-box {
+  max-width: 520px;
+  text-align: center;
+}
+
+.character-box h2 {
+  margin-bottom: 16px;
+  font-size: 22px;
+  color: #60a5fa;
+}
+
+.character-box p {
+  margin-bottom: 10px;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.character-box button {
+  margin-top: 20px;
+}
+
+/* ============================================================
+   AUTH: ЗАГОЛОВОК И ТАБЫ
+   ============================================================ */
+
+.auth-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #60a5fa;
+  letter-spacing: 0.5px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  background: #0f172a;
+  padding: 4px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.auth-tab:hover { color: #e2e8f0; }
+
+.auth-tab.active {
+  background: #3b82f6;
+  color: white;
+}
+
+/* ============================================================
+   AUTH: ФОРМА
+   ============================================================ */
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input {
+  padding: 12px 16px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.auth-form input:focus { border-color: #3b82f6; }
+.auth-form input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-form input::placeholder {
+  color: #64748b;
+}
+
+.auth-submit {
+  padding: 12px 16px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.auth-submit:hover:not(:disabled) { background: #2563eb; }
+.auth-submit:active:not(:disabled) { background: #1d4ed8; }
+.auth-submit:disabled { background: #475569; cursor: not-allowed; }
+
+/* ============================================================
+   AUTH: СООБЩЕНИЯ
+   ============================================================ */
+
+.auth-msg {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.auth-msg.info    { background: #1e3a5f; color: #93c5fd; }
+.auth-msg.success { background: #14532d; color: #86efac; }
+.auth-msg.error   { background: #4c1d1d; color: #fca5a5; }
+
+/* ============================================================
+   CHARACTER SLOTS
+   ============================================================ */
+
+.slots-box {
+  width: 100%;
+  max-width: 900px;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.slots-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.slots-header h2 {
+  font-size: 24px;
+  color: #60a5fa;
+  margin-bottom: 4px;
+}
+
+.slots-user {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.logout-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+  .slots-grid { grid-template-columns: repeat(2, 1fr); }
+  .slots-box { padding: 20px; }
+}
+
+.slot {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 16px;
+  text-align: center;
+  min-height: 140px;
+}
+
+.slot.empty {
+  background: #0f172a;
+  border: 2px dashed #334155;
+}
+
+.slot.empty:hover {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+}
+
+.slot-plus {
+  font-size: 36px;
+  color: #475569;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.slot.empty:hover .slot-plus { color: #60a5fa; }
+
+.slot-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.slot.filled {
+  background: #0f172a;
+  border: 2px solid #3b82f6;
+}
+
+.slot.filled:hover {
+  background: #1e3a5f;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+}
+
+.slot-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.slot-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.slot-class {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.slot-slot {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* ============================================================
+   CREATE CHARACTER
+   ============================================================ */
+
+.create-box {
+  max-width: 600px;
+}
+
+.classes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 10px 0;
+}
+
+@media (max-width: 500px) {
+  .classes-grid { grid-template-columns: 1fr; }
+}
+
+.class-option {
+  padding: 14px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.class-option:hover {
+  border-color: #60a5fa;
+}
+
+.class-option.selected {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+}
+
+.class-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.class-name {
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.class-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.class-stats {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.create-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.create-actions button {
+  flex: 1;
+}
+
+.auth-submit.secondary {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+}
+
+.auth-submit.secondary:hover:not(:disabled) {
+  background: #334155;
+}
+
+/* ============================================================
+   WORLD
+   ============================================================ */
+
+.world-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background: #0a0f1e;
+  overflow: hidden;
+}
+
+.world-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #1e293b;
+  font-size: 14px;
+  flex-shrink: 0;
+  height: 60px;
+  box-sizing: border-box;
+  z-index: 10;
+  border-bottom: 1px solid #334155;
+}
+
+.world-location {
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.world-coords,
+.world-zoom {
+  font-family: ui-monospace, monospace;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+/* Вьюпорт — игровая область */
+.world-viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #06080f;
+  /* Скругления и тень — как «экран внутри экрана» */
+  margin: 0;
+}
+
+#world-canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ============ DEATH ============ */
+
+.death-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+  background: #0a0a0a;
+}
+
+.death-box {
+  width: 100%;
+  max-width: 420px;
+  background: #1a0f0f;
+  border: 1px solid #4c1d1d;
+  border-radius: 12px;
+  padding: 40px 28px;
+  text-align: center;
+  box-shadow: 0 10px 60px rgba(220, 38, 38, 0.2);
+}
+
+.death-skull {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: deathPulse 2s ease-in-out infinite;
+}
+
+@keyframes deathPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.death-title {
+  font-size: 32px;
+  color: #ef4444;
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+
+.death-killer {
+  color: #fca5a5;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.death-info {
+  color: #94a3b8;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+.world-exit {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.world-exit:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* ============ HUD (полоса внизу игрового экрана) ============ */
+
+/* HUD рисуется на canvas (client/render/renderHUD.js).
+   Клики по полосе HUD обрабатываются в worldScene.js и не являются командой движения. */
+
+.world-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;   /* мир под полосой остаётся доступным для кликов */
+  z-index: 5;
+}
+
+/* ============================================================
+   ИГРОВЫЕ ОКНА (День 10): B — персонаж, I — инвентарь, M — карта
+   DOM-оверлеи поверх игрового canvas
+   ============================================================ */
+
+.gw-window {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  padding: 20px;
+  z-index: 20;
+  color: #e2e8f0;
+  font-family: inherit;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.gw-window-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #334155;
+}
+
+.gw-window-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.gw-window-hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ---- Окно персонажа (B) ---- */
+
+.gw-character { width: 460px; }
+
+.gw-char-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.gw-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a8a, #312e81);
+  border: 2px solid #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  flex-shrink: 0;
+}
+
+.gw-char-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.gw-char-class {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.gw-points {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+.gw-xp { margin-bottom: 18px; }
+
+.gw-xp-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 5px;
+}
+
+.gw-xp-bar {
+  height: 12px;
+  background: #422006;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+.gw-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #eab308, #f59e0b);
+  transition: width 0.3s;
+}
+
+.gw-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+  margin: 16px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #334155;
+}
+
+.gw-attrs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+
+.gw-attr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.gw-attr-icon { width: 18px; text-align: center; }
+.gw-attr-name { flex: 1; color: #94a3b8; }
+
+.gw-attr-value {
+  font-weight: 700;
+  color: #e2e8f0;
+  font-family: ui-monospace, monospace;
+}
+
+.gw-derived { display: flex; flex-direction: column; gap: 6px; }
+
+.gw-derived-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.gw-derived-icon { width: 18px; text-align: center; }
+.gw-derived-name { flex: 1; color: #94a3b8; }
+
+.gw-derived-value {
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+}
+
+/* ---- Инвентарь (I) ---- */
+
+.gw-inventory { width: 420px; }
+
+.gw-inv-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.gw-slot {
+  aspect-ratio: 1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+}
+
+.gw-inv-foot {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* ---- Карта мира (M) ---- */
+
+.gw-map { width: 560px; }
+
+.gw-map-region {
+  font-size: 16px;
+  font-weight: 700;
+  color: #a7f3d0;
+  margin-bottom: 4px;
+}
+
+.gw-map-current {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 14px;
+}
+
+.gw-map-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.gw-map-cell {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 90px;
+}
+
+.gw-map-here {
+  background: #1e3a8a;
+  border-color: #60a5fa;
+}
+
+.gw-map-empty-cell {
+  background: #0b1220;
+  border-style: dashed;
+  opacity: 0.4;
+}
+
+.gw-map-name {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.gw-map-size {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.gw-map-links {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.gw-map-badge {
+  margin-top: 6px;
+  display: inline-block;
+  font-size: 10px;
+  background: #60a5fa;
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.gw-map-empty {
+  font-size: 13px;
+  color: #64748b;
+  text-align: center;
+  padding: 20px;
+}

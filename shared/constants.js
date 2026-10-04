@@ -1,0 +1,35 @@
+// Общие константы
+
+export const WORLD = {
+  TILE_SIZE: 32,
+  DEFAULT_WIDTH: 50,
+  DEFAULT_HEIGHT: 50,
+  VIEW_RADIUS: 20,
+};
+
+export const TIME = {
+  TICK_MS: 200,
+  RECONNECT_GRACE_MS: 30000,
+  PING_INTERVAL_MS: 10000,
+  BAG_TTL_NORMAL_MS: 3 * 60 * 1000,
+  BAG_TTL_BOSS_MS: 10 * 60 * 1000,
+};
+
+export const COMBAT = {
+  LOOT_CONTRIBUTION_MIN: 0.3,   // 30% урона минимум
+  AUTO_ATTACK_COOLDOWN_MS: 1500,
+  DAMAGE_VARIANCE: 0.2,
+};
+
+export const ECONOMY = {
+  START_GOLD: 0,
+};
+
+export const VALIDATION = {
+  NICKNAME_MIN: 3,
+  NICKNAME_MAX: 16,
+  PASSWORD_MIN: 6,
+  PASSWORD_MAX: 64,
+  CHAR_NAME_MIN: 3,
+  CHAR_NAME_MAX: 16,
+};

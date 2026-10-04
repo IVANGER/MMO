@@ -1,0 +1,25 @@
+{
+  "name": "hero-camp",
+  "version": "0.1.0",
+  "description": "Реалтайм MMO-lite с открытым миром",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/**/*.test.js",
+    "test:unit": "node --test tests/unit/**/*.test.js",
+    "test:integration": "node --test tests/integration/**/*.test.js",
+    "live:world": "node scripts/liveWorld.js",
+    "live:mobs": "node scripts/liveMobs.js",
+    "backup": "node scripts/backup.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "better-sqlite3": "^12.9.0",
+    "nanoid": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
