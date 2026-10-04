@@ -1,7 +1,7 @@
 # 📘 HERO CAMP — Полное резюме проекта
 
 **Дата:** 4 октября 2026
-**Статус:** День 12 завершён (навыки 1-4 с кулдаунами и баффами, зелья + drag&drop в хотбар, удар только с соседней клетки, модельки игрока и мобов)
+**Статус:** День 13 завершён (радиусы по классам: воин 1 клетка / маг 3, диагональ разрешена; Маг с 4 навыками и кастом телепорта; энергия/мана + реген; замедление; экипировка + tooltip)
 **Прогресс MVP:** ~61%
 
 > **📌 Правило документирования (с Дня 11, обязательно для будущих правок):**
@@ -822,7 +822,158 @@ export const TILE_SPRITES = {
 
 ---
 
+## 🔮 День 13 — Радиусы по классам, Маг, энергия, замедление, экипировка, tooltip
+
+**Цель:** воину — ближний бой по **8 направлениям** (с диагональю), магу — **дальний бой на 3 клетки**; ресурсы (энергия/мана), реген, замедление, каст телепорта, «Старый меч», экипировка и tooltip.
+
+### 🔴 Задача 1 — Радиус атаки: 8 направлений + свой радиус у класса
+
+1. ✅ **`server/world/combat.js`** — вместо одной проверки теперь три:
+   ```js
+   export function inAttackRangeFor(a, b, range = 1) {
+     const dx = Math.abs(Math.round(a.x) - Math.round(b.x));
+     const dy = Math.abs(Math.round(a.y) - Math.round(b.y));
+     const dist = dx + dy;
+     if (dist === 0) return false;
+     if (range <= 1) return dx <= 1 && dy <= 1;   // 8 направлений (диагональ разрешена)
+     return dist <= range;                        // дальний бой — манхэттен
+   }
+   export function inAttackRange(a, b) { return inAttackRangeFor(a, b, 1); }
+   ```
+   - **День 12 → 13:** диагональ `(10,10)↔(9,9)` теперь **разрешена** (ближний бой);
+   - для `range > 1` — **манхэттен** (маг бьёт «крестом», а не по всей площади);
+   - `cellsInRange()` — клетки в радиусе: `range=1` → 8 соседей (квадрат 3×3 без центра), `range>1` → крест;
+   - ⚠️ Первый вариант `cellsInRange` считал по `dx + dy` без модулей — ломал диагонали; исправлено на `Math.max(|dx|,|dy|)` для `r===1`.
+2. ✅ **`updatePlayerCombat`** — радиус берётся у игрока: `inAttackRangeFor(entity, mob, entity.attackRange ?? 1)`.
+3. ✅ **`approachTarget` + `findCellInRange`** (вместо `findAdjacentCell`) — игрок ищет **любую свободную клетку в радиусе своего класса**, сортируя по близости к мобу; маг с `attackRange=3` больше не подходит вплотную.
+4. ✅ **`mobAI.js` / `findFreeAdjacent` (skillHandlers)** — мобы и рывок встают в **8 соседних** клеток.
+
+### 🔴 Задача 2 — Классы: у каждого свой радиус и ресурс
+
+5. ✅ **`server/content/classes.js`**:
+   - `warrior`: `resource: "energy"`, `attackRange: 1`;
+   - **новый класс `mage`**: 🔮, 100 HP / 128 MP / 24 ATK / 9 DEF,
+     атрибуты `STR 3, AGI 5, VIT 5, INT 10, SPI 8, PER 6, CHA 5, LUK 4, DEX 5, RES 4`,
+     рост `INT +3, SPI +2` за уровень, `resource: "mana"`, **`attackRange: 3`**,
+     навыки `["arcane_bolt", "frost_nova", "teleport", "arcane_shield"]`, оружие `apprentice_staff`.
+
+### 🔴 Задача 3 — Навыки: финальные значения + 4 навыка мага
+
+6. ✅ **`server/content/skills.js`** — перебалансировано (было → стало):
+
+| Навык | Кулдаун | Ресурс | Дальность | Прочее |
+|---|---|---|---|---|
+| `slash` «Сильный удар» 🗡️ | 3 → **8** | 5 | 1 | ×1.5, крит ×2 |
+| `charge` «Рывок» 💨 | 8 → **12** | 10 | **3** (было 5) | ×1.2 |
+| `iron_skin` «Железная кожа» 🛡️ | 15 → **45** | 8 | — | +50% защиты, **15 сек** (было 5) |
+| `battle_cry` «Боевой клич» 📢 | 20 → **40** | 12 | — | +30% атаки, **15 сек** (было 6) |
+
+7. ✅ **Маг:** `arcane_bolt` ✨ (мана 12, дальность 4, **×2.0** — заменяет «Огненный шар», имя оставлено под будущий AoE),
+   `frost_nova` ❄️ (мана 15, ×1.5, **замедление ×0.5 на 3 сек**), `teleport` ✨ (тип **`blink`**, мана 10, дальность 5, **каст 2 секунды**),
+   `arcane_shield` 🛡️ (мана 12, +50% защиты на 15 сек).
+8. ✅ **`server/api/skillHandlers.js`**:
+   - проверка дальности — единая `inAttackRangeFor(entity, target, skill.range)` (раньше урон проверялся строго по соседней клетке — маг не мог бить с 4 клеток);
+   - **`blink`**: `validateBlinkDest()` → `startCast()` — ресурс и кулдаун списываются **сразу**, эффект — по таймеру;
+   - **`frost_nova`**: `applySlow(target, 0.5, 3с)` + broadcast `entityEffect`;
+   - `handleCancelCast` — отмена каста (Esc);
+   - «Недостаточно **энергии**/**маны**» — по ресурсу класса.
+### 🔴 Задача 4 — Ресурсы, реген, замедление
+
+9. ✅ **`shared/derivedStats.js`** — `calcEnergyMax = 30 + VIT×4 + STR` (**воин 1 ур. = 66**), `calcEnergyRegen = 0.5 + VIT×0.05 + STR×0.02` (**1.01/сек**); обе добавлены в `calcAll` (**18 параметров** вместо 16).
+10. ✅ **`server/world/regen.js`** (новый) — `updateRegen()` (HP + ресурс по `entity.resource`) и `updateCasts()` (завершение каста/телепорт). Вызывается в тике, результат уходит в `mergeChanged`.
+11. ✅ **`server/world/movement.js`** — скорость умножается на `speedMultiplier(entity)` (замедление работает и на мобов, и на игроков).
+12. ✅ **`server/world/combat.js`** — при получении урона каст помечается `interrupted` → прерывается.
+13. ✅ **Ресурс по классу** — `create.js` и `leveling.js` пишут в `mp/max_mp` потолок нужного ресурса (энергия для воина, мана для мага).
+
+### 🔴 Задача 5 — Предметы и экипировка
+
+14. ✅ **`server/content/items/weapons.js`** — было **пусто** (`{}`), теперь 3 предмета: `rusty_sword` (стартовое), **`old_sword` «Старый меч» ⚔️ (+1 ATK, 10 зол.)**, `apprentice_staff` (стартовое мага). У всех `bonuses`, `requires`, `price`, `tier`.
+15. ✅ **`server/api/inventoryHandlers.js`** — `handleEquipItem` / `handleUnequipItem`:
+    - проверка уровня (`requires.level`), запрет экипировать расходники;
+    - слот занят — старый предмет автоматически снимается;
+    - `applyEquipmentBonuses()` пересчитывает `entity.atk/defense = base + бонусы надетого`;
+    - `sendInventory` → `toClientItem()` отдаёт **все поля для tooltip**: `description`, `bonuses`, `effect`, `cooldown`, `requires`, `price`, `rarity`, `tier`, `stackable`.
+16. ✅ **Протокол/роуты** — `equipItem`, `unequipItem`, `cancelCast`, `castStarted/castFinished/castInterrupted/castCancelled/entityEffect/itemEquipped`.
+
+### 🔴 Задача 6 — Клиент
+
+17. ✅ **`client/ui/tooltip.js`** (новый) — один переиспользуемый DOM-элемент: иконка, имя **цветом редкости**, описание, бонусы, эффект, требования, цена; сам отводится от правого/нижнего края.
+18. ✅ **`client/ui/inventory.js`** — `mouseover/mousemove/mouseout` → tooltip; **двойной клик**: расходник — использовать, оружие/броня — надеть/снять; надетое помечается «Э» зелёной рамкой.
+19. ✅ **`client/render/renderHUD.js`** — ресурс: **⚡ жёлтый** (энергия, воин) или **💧 синий** (мана, маг).
+### 🐛 Найденные и исправленные баги (вскрылись живым тестом)
+
+| # | Баг | Причина | Где |
+|---|---|---|---|
+| 1 | Реген не виден в HUD | `serializeMove` игрока отдавал только координаты | `world.js` |
+| 2 | Реген не виден в HUD | клиент игнорировал `hp/mp` в `entityMoved` для себя | `worldScene.js` |
+| 3 | Телепорт уходил в `(undefined, undefined)` | `applyBlink` читал `cast.x/y`, а `startCast` писал `cast.targetX/targetY` | `regen.js` |
+| 4 | Двойной ответ при отмене | `updateCasts` слал `castFinished` даже после `castInterrupted` | `regen.js` |
+| 5 | Сервер не стартовал | `replyToCharacter` не был экспортирован из `combat.js` | `combat.js` |
+| 6 | `cellsInRange` возвращала 0 клеток | сравнение `dx + dy` вместо `Math.abs()` | `combat.js` |
+
+### ✅ Критерий готовности (День 13)
+
+- [x] Радиус воина — 1 клетка, **8 направлений, диагональ разрешена** (живой тест: удар по диагонали)
+- [x] Радиус мага — **3 клетки** (живой тест: урон с расстояния)
+- [x] Подход к цели **в своём радиусе** (`findCellInRange`), а не вплотную
+- [x] Рывок — 3 клетки
+- [x] Реген HP/энергии/маны — работает в тике (живой тест: 58 → 59.43)
+- [x] Мана — от INT/SPI (**маг 116**), энергия воина — от VIT/STR (**66**), иконка ⚡/💧
+- [x] Маг доступен при создании, 4 навыка в порядке слотов 1-4
+- [x] `frost_nova` — замедление ×0.5 на 3 сек (живой тест)
+- [x] `teleport` — **каст 2 секунды**, затем перемещение; **Esc отменяет** каст
+- [x] «Старый меч» +1 ATK, экипировка/снятие меняет статы
+- [x] Tooltip при наведении (описание, бонусы, цена, требования)
+- [x] Тесты: **98/98 unit+integration**, живой тест — **36/36**
+
+### 📁 Файлы, затронутые (День 13)
+
+**Изменено (21):**
+
+| Файл | Что менялось |
+|---|---|
+| `server/world/combat.js` | `+inAttackRangeFor()`, `+cellsInRange()`, `+findCellInRange()`, `+applySlow()`, `+speedMultiplier()`; радиус из `entity.attackRange`; прерывание каста уроном; экспорт `replyToCharacter` |
+| `server/world/regen.js` | **новый** — `updateRegen()`, `updateCasts()`, `applyBlink()` |
+| `server/world/world.js` | вызов `updateRegen`/`updateCasts` в тике; `serializeMove` отдаёт HP/MP игрока |
+| `server/world/movement.js` | учёт замедления при перемещении |
+| `server/world/entities.js` | `attackRange`, `resource`, регены, `baseAtk/baseDefense`, `equippedBonuses`, `slow`, `casting` |
+| `server/world/mobAI.js` | мобы встают в 8 соседних клеток |
+| `server/content/classes.js` | `warrior`: `resource/attackRange`; **новый класс `mage`** |
+| `server/content/skills.js` | перебалансировка навыков воина; **4 новых навыка мага** |
+| `server/content/items/weapons.js` | `rusty_sword`, `old_sword`, `apprentice_staff` |
+| `server/api/skillHandlers.js` | дальность по `skill.range`; `blink` (каст/валидация/отмена); замедление; «недостаточно энергии/маны» |
+| `server/api/inventoryHandlers.js` | `equipItem`/`unequipItem`, `applyEquipmentBonuses`, `toClientItem` |
+| `server/network/dispatcher.js` | роуты `equipItem`, `unequipItem`, `cancelCast` |
+| `server/character/create.js` | ресурс по классу, `attackRange`, `resourceName`, регены |
+| `server/character/leveling.js` | пересчёт потолка ресурса при level-up |
+| `shared/derivedStats.js` | `calcEnergyMax`, `calcEnergyRegen` (в `calcAll` — 18 параметров) |
+| `shared/protocol.js` | типы кастов, эффектов, экипировки |
+| `client/ui/tooltip.js` | **новый** — всплывающая подсказка |
+| `client/ui/inventory.js` | tooltip, экипировка двойным кликом, метка «Э» |
+| `client/ui/characterWindow.js` | «Энергия»/«Мана», дальность атаки, регены |
+| `client/render/renderHUD.js` | иконка ресурса ⚡/💧 |
+| `client/scenes/worldScene.js` | каст по курсору, Esc-отмена, полоса каста, HP/MP из `entityMoved` |
+| `client/style.css` | стили tooltip и надетого предмета |
+
+**Новое (3):** `server/world/regen.js`, `client/ui/tooltip.js`, `tests/unit/day13.test.js` (19 тестов) + `scripts/liveDay13.js` (36 проверок).
+
+**Обновлено тестов (3):** `tests/unit/day12.test.js` (диагональ теперь разрешена + новые значения навыков), `tests/unit/content.test.js` (16 → 18 параметров), `tests/integration/worldFlow.test.js` (энергия 66 вместо маны 42).
+
+**Проверено, но НЕ менялось (3):** `server/db.js` (миграций не нужно — ресурс берётся из класса), `server/schema.sql` (новых колонок нет), `client/render/renderWorld.js` (модельки Дня 12 не затронуты).
+
+### 💡 Замечания
+
+- **Энергия воина (66) выше маны (42)** — осознанно: энергия регенит быстрее (1.01/сек против 0.47), тратится чаще, но восстанавливается без «провала после боя».
+- **Маг — 80 HP** против воина 136: на первом уровне маг погибает от гоблина вблизи — это баланс дальнего боя, держать дистанцию.
+- **Бонусы оружия живут только в runtime-сущности.** После реконнекта `applyEquipmentBonuses()` нужно вызвать при входе (сейчас вызывается только при смене экипировки) — **потенциальный баг на следующий день**.
+- **`updateRegen` шлёт `entityMoved` каждый тик**, пока HP/ресурс не восстановятся — небольшой трафик, но нужно для плавных полосок.
+
+---
+
 ## 🎯 План Дня 9 — Характеристики, вторичные параметры, дальность хода
+20. ✅ **`client/ui/characterWindow.js`** — «Энергия»/«Мана», **дальность атаки**, реген HP и реген ресурса.
+21. ✅ **`client/scenes/worldScene.js`** — каст: клавиша `3` шлёт `useSkill` с `targetX/targetY` **по курсору**; подписки кастов/эффектов/экипировки; **Esc отменяет каст**; полоса прогресса каста над игроком + фиолетовая рамка на цели; в `entityMoved` подхватываются `hp/mp/maxHp/maxMp/slow`.
+22. ✅ **`server/world/world.js`** — `serializeMove` для игроков отдаёт `hp/maxHp/mp/maxMp/slow` (иначе полоски HUD не обновлялись).
 
 > **Утверждён пользователем** (баланс скорректирован). Два зайца: **(1)** ограничиваем длину ходьбы за один клик — фиксит «откидывание назад» на путях длиннее 7-8 клеток; **(2)** запускаем систему прокачки.
 >

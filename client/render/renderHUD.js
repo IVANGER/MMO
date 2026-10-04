@@ -33,10 +33,12 @@ export function renderHUD(ctx, { width, height, you, location, skills = [], hotb
     bg: "#3f1d1d",
   });
 
+  // Ресурс навыков: энергия (⚡ жёлтый, Воин) или мана (💧 синий, Маг) — День 13
+  const isEnergy = you?.resource === "energy";
   drawBar(ctx, PAD, top + 40, BAR_W, BAR_H, you?.mp ?? 0, you?.maxMp ?? 0, {
-    icon: "💧",
-    color: "#3b82f6",
-    bg: "#1e3a5f",
+    icon: isEnergy ? "⚡" : "💧",
+    color: isEnergy ? "#eab308" : "#3b82f6",
+    bg: isEnergy ? "#422006" : "#1e3a5f",
   });
 
   // ============ Опыт (День 10) — под полосами здоровья и маны ============

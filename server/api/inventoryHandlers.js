@@ -21,19 +21,33 @@ function sendInventory(ws, characterId) {
 
   reply(ws, {
     type: "inventory",
-    items: items.map((it) => {
-      const tmpl = getItem(it.type);
-      return {
-        id: it.id,
-        type: it.type,
-        name: tmpl?.name ?? it.type,
-        icon: tmpl?.icon ?? "❓",
-        rarity: it.rarity,
-        slot: it.slot,
-        equipped: it.equipped === 1,
-      };
-    }),
+    items: items.map((it) => toClientItem(it)),
   });
+}
+
+// Предмет для клиента: шаблон + данные для tooltip (День 13)
+function toClientItem(it) {
+  const tmpl = getItem(it.type);
+  return {
+    id: it.id,
+    type: it.type,
+    name: tmpl?.name ?? it.type,
+    icon: tmpl?.icon ?? "❓",
+    description: tmpl?.description ?? "",
+    rarity: tmpl?.rarity ?? it.rarity,
+    slot: tmpl?.slot ?? it.slot,
+    level: it.level,
+    equipped: it.equipped === 1,
+    // Для tooltip
+    tier: tmpl?.tier ?? 1,
+    bonuses: tmpl?.bonuses ?? null,
+    effect: tmpl?.effect ?? null,
+    cooldown: tmpl?.cooldown ?? 0,
+    requires: tmpl?.requires ?? null,
+    price: tmpl?.price ?? 0,
+    stackable: tmpl?.stackable === true,
+    maxStack: tmpl?.maxStack ?? 1,
+  };
 }
 
 function sendHotbar(ws, characterId) {
@@ -129,6 +143,115 @@ export function handleUseItem(ws, msg) {
   // Инвентарь и хотбар изменились — присылаем актуальные
   sendInventory(ws, session.characterId);
   sendHotbar(ws, session.characterId);
+}
+
+// ============ Экипировка (День 13) ============
+// Бонусы применяются к runtime-сущности: atk/defense = база + бонусы надетого.
+// Слот определяется полем slot предмета («weapon», «armor»...).
+
+export function handleEquipItem(ws, msg) {
+  const session = getSession(ws);
+  if (!session || !session.characterId) return;
+
+  const itemId = msg.itemId;
+  if (typeof itemId !== "string") {
+    return reply(ws, { type: "error", message: "Неверный предмет" });
+  }
+
+  const item = get(
+    `SELECT * FROM items WHERE id = ? AND owner_id = ?`,
+    itemId, session.characterId
+  );
+  if (!item) return reply(ws, { type: "error", message: "Предмет не найден" });
+
+  const tmpl = getItem(item.type);
+  if (!tmpl) return reply(ws, { type: "error", message: "Неизвестный предмет" });
+  if (tmpl.slot === "consumable") {
+    return reply(ws, { type: "error", message: "Расходник нельзя надеть" });
+  }
+
+  const char = get(
+    `SELECT level FROM characters WHERE id = ?`,
+    session.characterId
+  );
+  const needLevel = tmpl.requires?.level ?? 1;
+  if (char && (char.level ?? 1) < needLevel) {
+    return reply(ws, {
+      type: "error",
+      message: `Нужен ${needLevel} уровень`,
+    });
+  }
+
+  // Снимаем предыдущий предмет этого же слота
+  run(
+    `UPDATE items SET equipped = 0 WHERE owner_id = ? AND slot = ? AND equipped = 1`,
+    session.characterId, item.slot
+  );
+  run(`UPDATE items SET equipped = 1 WHERE id = ?`, itemId);
+
+  const applied = applyEquipmentBonuses(session);
+  reply(ws, {
+    type: "itemEquipped",
+    itemId,
+    slot: item.slot,
+    name: tmpl.name,
+    atk: applied.atk,
+    defense: applied.defense,
+  });
+
+  sendInventory(ws, session.characterId);
+  logger.info(`${item.type} equipped by ${session.characterId}`);
+}
+
+export function handleUnequipItem(ws, msg) {
+  const session = getSession(ws);
+  if (!session || !session.characterId) return;
+
+  const item = get(
+    `SELECT id FROM items WHERE id = ? AND owner_id = ?`,
+    msg.itemId, session.characterId
+  );
+  if (!item) return reply(ws, { type: "error", message: "Предмет не найден" });
+
+  run(`UPDATE items SET equipped = 0 WHERE id = ?`, item.id);
+
+  const applied = applyEquipmentBonuses(session);
+  reply(ws, {
+    type: "itemEquipped",
+    itemId: item.id,
+    atk: applied.atk,
+    defense: applied.defense,
+  });
+
+  sendInventory(ws, session.characterId);
+}
+
+// Пересчёт бонусов надетого в runtime-сущность игрока.
+// Возвращает итоговые atk/defense.
+export function applyEquipmentBonuses(session) {
+  const loc = getLoadedLocation(session.locationId);
+  const entity = loc?.entities.get(session.characterId);
+  if (!entity) return { atk: 0, defense: 0 };
+
+  const rows = all(
+    `SELECT type FROM items WHERE owner_id = ? AND equipped = 1`,
+    session.characterId
+  );
+
+  let atkBonus = 0;
+  let defBonus = 0;
+  for (const r of rows) {
+    const bonuses = getItem(r.type)?.bonuses;
+    if (!bonuses) continue;
+    atkBonus += bonuses.atk ?? 0;
+    defBonus += bonuses.defense ?? 0;
+  }
+
+  entity.equippedBonuses = { atk: atkBonus, defense: defBonus };
+  entity.atk = (entity.baseAtk ?? entity.atk ?? 1) + atkBonus;
+  entity.defense = (entity.baseDefense ?? entity.defense ?? 0) + defBonus;
+
+  return { atk: entity.atk, defense: entity.defense };
 }
 
 // ============ Хотбар ============

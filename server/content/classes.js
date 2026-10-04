@@ -27,6 +27,12 @@ export const CLASSES = {
       PER: 1, CHA: 0, LUK: 1, DEX: 1, RES: 2,
     },
 
+    // Ресурс для навыков: "energy" — энергия (Воин), "mana" — мана (Маг)
+    resource: "energy",
+
+    // Дальность автоатаки в клетках (День 13). 1 = ближний бой (8 направлений)
+    attackRange: 1,
+
     // Навыки, доступные классу
     skills: ["slash", "charge", "iron_skin", "battle_cry"],
 
@@ -34,8 +40,40 @@ export const CLASSES = {
     startingWeapon: "rusty_sword",
   },
 
+  mage: {
+    type: "mage",
+    name: "Маг",
+    description: "Дальний бой. Мощные заклинания, но мало HP.",
+    icon: "🔮",
+
+    // Базовые статы на 1 уровне (вторичные — считаются из baseAttributes)
+    baseStats: {
+      max_hp: 100,
+      max_mp: 128,
+      atk: 24,
+      defense: 9,
+    },
+
+    // 10 базовых характеристик на 1 уровне (День 13)
+    baseAttributes: {
+      STR: 3, AGI: 5, VIT: 5, INT: 10, SPI: 8,
+      PER: 6, CHA: 5, LUK: 4, DEX: 5, RES: 4,
+    },
+
+    // Прирост за уровень: INT/SPI — основа мага
+    growthPerLevel: {
+      STR: 0, AGI: 1, VIT: 1, INT: 3, SPI: 2,
+      PER: 1, CHA: 0, LUK: 1, DEX: 1, RES: 0,
+    },
+
+    resource: "mana",
+    attackRange: 3,   // ← дальний бой (День 13)
+
+    skills: ["arcane_bolt", "frost_nova", "teleport", "arcane_shield"],
+    startingWeapon: "apprentice_staff",
+  },
+
   // Заготовки для будущих классов
-  // mage: { ... },
   // archer: { ... },
 };
 

@@ -862,6 +862,82 @@ body {
   text-align: center;
 }
 
+/* ---- Предмет надет (День 13): зелёная рамка + метка «Э» ---- */
+
+.gw-slot-equipped {
+  border-color: #4ade80 !important;
+  box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.35);
+}
+
+.gw-item-equipped {
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  font: 700 9px ui-monospace, monospace;
+  color: #4ade80;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+
+/* ---- Tooltip предмета (День 13) ---- */
+
+.gw-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 280px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  color: #e2e8f0;
+  pointer-events: none;   /* не мешает кликам под собой */
+}
+
+.gw-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #334155;
+}
+
+.gw-tip-icon { font-size: 24px; line-height: 1; }
+
+.gw-tip-titles { min-width: 0; }
+
+.gw-tip-name {
+  font: 700 13px system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gw-tip-rarity { font-size: 10px; opacity: 0.85; }
+
+.gw-tip-desc {
+  color: #cbd5e1;
+  font-style: italic;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.gw-tip-block { margin-bottom: 6px; }
+
+.gw-tip-bonus {
+  color: #4ade80;
+  font: 600 11px system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.gw-tip-note { color: #94a3b8; font-size: 10px; line-height: 1.4; }
+
+.gw-tip-req { color: #fbbf24; font-size: 11px; line-height: 1.4; }
+
+.gw-tip-price { color: #fbbf24; font: 600 11px system-ui, sans-serif; margin-top: 4px; }
+
 /* ---- Карта мира (M) ---- */
 
 .gw-map { width: 560px; }

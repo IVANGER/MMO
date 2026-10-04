@@ -99,6 +99,15 @@ export const MSG = {
   INVENTORY: "inventory",
   ITEM_USED: "itemUsed",
   ITEM_COOLDOWN: "itemCooldown",
+  // Касты и эффекты (День 13)
+  CANCEL_CAST: "cancelCast",
+  CAST_STARTED: "castStarted",
+  CAST_FINISHED: "castFinished",
+  CAST_INTERRUPTED: "castInterrupted",
+  CAST_CANCELLED: "castCancelled",
+  ENTITY_EFFECT: "entityEffect",
+  ITEM_EQUIPPED: "itemEquipped",
+
   SKILLS: "skills",
   HOTBAR: "hotbar",
   HOTBAR_UPDATE: "hotbarUpdate",

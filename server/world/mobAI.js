@@ -52,7 +52,7 @@ function think(loc, mob, players, now) {
   // Кого видит моб?
   const target = findTarget(mob, players);
 
-  // Атака вплотную: только соседние по стороне клетки (День 12 — inAttackRange)
+  // Атака вплотную: 8 соседних клеток (День 13, диагональ разрешён)
   if (target && inAttackRange(mob, target)) {
     setAggro(mob, true, target);
     mob.path = [];

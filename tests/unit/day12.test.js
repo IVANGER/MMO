@@ -11,18 +11,19 @@ import { ARMOR } from "../../server/content/items/armor.js";
 import { SKILLS } from "../../server/content/skills.js";
 import { getClass } from "../../server/content/classes.js";
 
-// ============ Радиус атаки: только соседние по стороне клетки ============
+// ============ Радиус атаки (День 13: 8 направлений, диагональ разрешена) ============
 
-test("inAttackRange: соседи по стороне — можно бить", () => {
+test("inAttackRange: соседи по стороне и по диагонали — можно бить", () => {
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 11, y: 10 }), true, "справа");
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 9, y: 10 }), true, "слева");
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 10, y: 11 }), true, "снизу");
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 10, y: 9 }), true, "сверху");
+  // День 13: диагональ разрешена
+  assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 9, y: 9 }), true, "диагональ вверх-влево");
+  assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 11, y: 11 }), true, "диагональ вниз-вправо");
 });
 
-test("inAttackRange: диагональ / та же клетка / 2+ клетки — нельзя", () => {
-  assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 9, y: 9 }), false, "диагональ (манхэттен 2)");
-  assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 11, y: 11 }), false, "диагональ вниз-вправо");
+test("inAttackRange: та же клетка / 2+ клетки — нельзя", () => {
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 10, y: 10 }), false, "та же клетка");
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 12, y: 10 }), false, "через клетку");
   assert.equal(inAttackRange({ x: 10, y: 10 }, { x: 8, y: 11 }), false, "через 2 клетки");
@@ -30,7 +31,7 @@ test("inAttackRange: диагональ / та же клетка / 2+ клетк
 
 test("inAttackRange: дробные координаты округляются до клетки", () => {
   assert.equal(inAttackRange({ x: 10.4, y: 9.6 }, { x: 11, y: 10 }), true, "(10.4,9.6)→(10,10), сосед справа");
-  assert.equal(inAttackRange({ x: 10.4, y: 9.6 }, { x: 11, y: 11 }), false, "диагональ после округления");
+  assert.equal(inAttackRange({ x: 10.4, y: 9.6 }, { x: 11, y: 11 }), true, "диагональ после округления");
 });
 
 // ============ Зелья (День 12) ============
@@ -70,15 +71,21 @@ test("навыки воина: ровно 4 и в порядке слотов 1-
   }
 });
 
-test("навыки: типы эффектов (урон, рывок, баффы)", () => {
+test("навыки: типы эффектов и финальные значения Дня 13", () => {
   assert.equal(SKILLS.slash.type, "damage");
   assert.equal(SKILLS.slash.damageMultiplier, 1.5);
+  assert.equal(SKILLS.slash.cooldown, 8);
+  assert.equal(SKILLS.slash.mpCost, 5);
   assert.equal(SKILLS.charge.type, "movement");
-  assert.equal(SKILLS.charge.range, 5);
+  assert.equal(SKILLS.charge.range, 3);        // День 13: было 5
+  assert.equal(SKILLS.charge.cooldown, 12);
   assert.equal(SKILLS.iron_skin.type, "buff");
-  assert.equal(SKILLS.iron_skin.duration, 5);
+  assert.equal(SKILLS.iron_skin.duration, 15); // День 13: было 5
+  assert.equal(SKILLS.iron_skin.cooldown, 45); // День 13: было 15
   assert.equal(SKILLS.iron_skin.buff.defense, 0.5);
   assert.equal(SKILLS.battle_cry.type, "buff");
+  assert.equal(SKILLS.battle_cry.duration, 15); // День 13: было 6
+  assert.equal(SKILLS.battle_cry.cooldown, 40); // День 13: было 20
   assert.equal(SKILLS.battle_cry.buff.atk, 0.3);
 });
 

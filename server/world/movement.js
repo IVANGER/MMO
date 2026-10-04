@@ -1,6 +1,8 @@
 // Движение сущностей по пути
+// День 13: учитываем замедление (frost_nova) — множитель скорости
 
 import { logger } from "../log.js";
+import { speedMultiplier } from "./combat.js";
 
 /**
  * Обновляем всех движущихся сущностей в локации.
@@ -22,8 +24,9 @@ export function updateMovements(loc, dt) {
       continue;
     }
 
-    // Сколько клеток мы должны пройти за dt
-    const moveDistance = entity.speed * dt;
+    // Сколько клеток мы должны пройти за dt (с учётом замедления — День 13)
+    const now = Date.now();
+    const moveDistance = entity.speed * dt * speedMultiplier(entity, now);
 
     let remaining = moveDistance;
 

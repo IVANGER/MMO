@@ -50,6 +50,18 @@ export function calcMpRegen(a) {
   return 0.3 + a.INT * 0.04 + a.SPI * 0.03;
 }
 
+// ============ Энергия (ресурс Воина, День 13) ============
+// Воин тратит не магию, а энергию — она копится от VIT/STR и медленнее,
+// зато восстанавливается заметно быстрее (нет задержки «мана после боя»).
+
+export function calcEnergyMax(a) {
+  return 30 + a.VIT * 4 + a.STR * 1;
+}
+
+export function calcEnergyRegen(a) {
+  return 0.5 + a.VIT * 0.05 + a.STR * 0.02;
+}
+
 // Скорость хода, кл/сек — старт 2.0 (AGI 5)
 export function calcMoveSpeed(a) {
   return 1.5 + a.AGI * 0.1;
@@ -83,6 +95,8 @@ export function calcAll(a) {
     hitChance: calcHitChance(a),
     hpRegen: calcHpRegen(a),
     mpRegen: calcMpRegen(a),
+    energyMax: calcEnergyMax(a),
+    energyRegen: calcEnergyRegen(a),
     moveSpeed: calcMoveSpeed(a),
     moveRange: calcMoveRange(a),
     magicResist: calcMagicResist(a),

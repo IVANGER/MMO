@@ -127,9 +127,13 @@ test("регистрация → персонаж → вход в мир", async
   assert.equal(you.y, 7);
 });
 
-test("статы персонажа из характеристик (День 9)", () => {
+test("статы персонажа из характеристик (День 9 + День 13)", () => {
   assert.equal(you.maxHp, 136, "HP воина 136");
-  assert.equal(you.maxMp, 42, "MP воина 42");
+  // День 13: у воина ресурс — ЭНЕРГИЯ (30 + VIT×4 + STR = 30+28+8 = 66), не мана
+  assert.equal(you.maxMp, 66, "энергия воина 66");
+  assert.equal(you.resource, "energy", "ресурс воина — энергия");
+  assert.equal(you.resourceName, "Энергия");
+  assert.equal(you.attackRange, 1, "радиус атаки воина 1");
   assert.equal(you.atk, 18, "атака 18");
   assert.equal(you.defense, 14, "защита 14");
   assert.equal(you.speed, 2.0, "скорость 2.0 кл/сек");

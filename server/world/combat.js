@@ -12,16 +12,60 @@ import { getAllSessions } from "../network/sessions.js";
 import { logger } from "../log.js";
 import * as entityStore from "./entityStore.js";
 
-export const ATTACK_RANGE = 1.2;    // радиус атаки в клетках (вплотную)
+export const ATTACK_RANGE = 1.2;    // радиус атаки мобов по умолчанию (в клетках)
 
-// Радиус атаки: только соседние клетки (4 стороны) — День 12
-// Манхэттен НЕ подходит: (10,10)↔(9,9) имеет манхэттен 2, но это
-// диагональ, а бить можно только «по стороне»: (1,0) или (0,1).
-export function inAttackRange(a, b) {
+// Радиус атаки с учётом дальности класса (День 13).
+//  range = 1 → 8 направлений (ближний бой, диагональ РАЗРЕШЕНА)
+//  range > 1 → манхэттен (дальний бой мага: «крест» без диагоналей)
+// Та же клетка (0,0) — не в радиусе: нельзя ударить самого себя.
+export function inAttackRangeFor(a, b, range = 1) {
   const dx = Math.abs(Math.round(a.x) - Math.round(b.x));
   const dy = Math.abs(Math.round(a.y) - Math.round(b.y));
-  // Сосед по стороне: (1, 0) или (0, 1). Не диагональ, не та же клетка.
-  return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+  const dist = dx + dy;
+  if (dist === 0) return false;
+
+  if (range <= 1) return dx <= 1 && dy <= 1;   // 8 направлений
+  return dist <= range;                        // манхэттен
+}
+
+// Ближний бой (8 направлений) — алиас для range = 1
+export function inAttackRange(a, b) {
+  return inAttackRangeFor(a, b, 1);
+}
+
+// Клетки, попадающие в радиус range от точки (mx, my) — для подхода и рывка.
+// Для range = 1 возвращает 8 соседей (включая диагонали).
+export function cellsInRange(mx, my, range = 1) {
+  const out = [];
+  const r = Math.max(1, Math.round(range));
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      // range = 1 — 8 направлений (диагонали включены, это квадрат 3×3 без центра);
+      // range > 1 — манхэттен (крест, без дальних диагоналей)
+      const inRange = r === 1
+        ? Math.max(Math.abs(dx), Math.abs(dy)) <= 1
+        : Math.abs(dx) + Math.abs(dy) <= r;
+      if (!inRange) continue;
+      out.push({ x: mx + dx, y: my + dy });
+    }
+  }
+  return out;
+}
+
+// Замедление (frost_nova, День 13): множитель скорости до `until`
+export function applySlow(entity, mult, durationMs, now = Date.now()) {
+  if (!entity) return;
+  // Сильнее замедление не перебивается более слабым
+  if (entity.slow && entity.slow.until > now && entity.slow.mult <= mult) return;
+  entity.slow = { mult, until: now + durationMs };
+}
+
+// Текущий множитель скорости (1 = без замедления)
+export function speedMultiplier(entity, now = Date.now()) {
+  const s = entity?.slow;
+  if (!s || s.until <= now) return 1;
+  return s.mult;
 }
 const BASE_COOLDOWN_MS = 1000;      // базовый кулдаун между ударами
 const COOLDOWN_MIN_MS = 400;        // быстрее нельзя даже с большой скоростью атаки
@@ -80,14 +124,15 @@ export function updatePlayerCombat(loc, now = Date.now()) {
       continue;
     }
 
-    // Вне радиуса (не соседние по стороне клетки) — подходим к цели
-    if (!inAttackRange(entity, mob)) {
+    // Вне своего радиуса атаки — подходим к цели (День 13: у каждого класса свой)
+    const range = entity.attackRange ?? 1;
+    if (!inAttackRangeFor(entity, mob, range)) {
       approachTarget(loc, entity, mob, now);
       changed.push(entity);
       continue;
     }
 
-    // Дошли вплотную — бьём (если кулдаун прошёл)
+    // В радиусе — стоим и бьём (если кулдаун прошёл)
     entity.path = [];
     entity.state = "idle";
 
@@ -152,6 +197,11 @@ function strikeMob(loc, mob, player, now) {
   const damage = Math.max(1, Math.floor(raw * (crit ? 2 : 1)));
 
   player.hp = Math.max(0, player.hp - damage);
+
+  // Каст прерывается уроном (День 13) — помечаем, снимет updateCasts
+  if (player.casting) {
+    player.casting.interrupted = true;
+  }
 
   // Игроку — визуал урона (HP в HUD, цифра над головой, вспышка экрана)
   replyToCharacter(player.id, {
@@ -303,7 +353,9 @@ function approachTarget(loc, entity, mob, now) {
   entity.nextRepathAt = now + REPATH_MS;
 
   const occupied = buildOccupied(loc, entity);
-  const goal = findAdjacentCell(loc, mob, occupied);
+  // День 13: ищем любую свободную клетку В РАДИУСЕ атаки игрока,
+  // а не строго вплотную — маг с дальностью 3 не должен подходить вплотную.
+  const goal = findCellInRange(loc, mob, entity.attackRange ?? 1, occupied);
 
   if (!goal) {
     entity.path = [];
@@ -322,22 +374,21 @@ function approachTarget(loc, entity, mob, now) {
   entity.state = entity.path.length > 0 ? "moving" : "idle";
 }
 
-// Любая свободная проходимая клетка вплотную к мобу
-function findAdjacentCell(loc, mob, occupied) {
+// Любая свободная проходимая клетка в радиусе `range` от моба.
+// День 13: range = 1 → 8 соседей (с диагоналями); range > 1 → крест (манхэттен).
+export function findCellInRange(loc, mob, range = 1, occupied = new Set()) {
   const mx = Math.round(mob.x);
   const my = Math.round(mob.y);
 
-  const around = [
-    { x: mx, y: my - 1 },
-    { x: mx, y: my + 1 },
-    { x: mx - 1, y: my },
-    { x: mx + 1, y: my },
-  ];
+  // Ближе к мобу — лучше: сортируем по расстоянию
+  const cells = cellsInRange(mx, my, range)
+    .map((c) => ({ ...c, d: Math.abs(c.x - mx) + Math.abs(c.y - my) }))
+    .sort((a, b) => a.d - b.d);
 
-  for (const c of around) {
+  for (const c of cells) {
     if (!isCellWalkable(loc.data, c.x, c.y)) continue;
     if (occupied.has(`${c.x},${c.y}`)) continue;
-    return c;
+    return { x: c.x, y: c.y };
   }
 
   return null;
@@ -370,7 +421,7 @@ export function broadcast(locationId, payload) {
   }
 }
 
-function replyToCharacter(characterId, payload) {
+export function replyToCharacter(characterId, payload) {
   const data = JSON.stringify(payload);
   for (const s of getAllSessions()) {
     if (s.characterId !== characterId) continue;

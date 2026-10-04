@@ -53,6 +53,10 @@ function renderCharacterHtml(you) {
   const xpToNext = you.xpToNext ?? 100;
   const xpPct = Math.max(0, Math.min(100, (xp / Math.max(1, xpToNext)) * 100));
 
+  // Ресурс навыков: «Энергия» (Воин) или «Мана» (Маг) — День 13
+  const resName = you.resourceName ?? (you.resource === "energy" ? "Энергия" : "Мана");
+  const resIcon = you.resource === "energy" ? "⚡" : "💧";
+
   const attrRows = ATTR_ORDER.map((code) => {
     const a = ATTRIBUTES[code];
     const value = attrs[code] ?? 0;
@@ -92,11 +96,19 @@ function renderCharacterHtml(you) {
 
     <div class="gw-section-title">Вторичные параметры</div>
     <div class="gw-derived">
-      ${derivedRow("❤️", "Здоровье", you.hp, you.maxHp)}
-      ${derivedRow("💧", "Мана", you.mp, you.maxMp)}
+      ${derivedRow("❤️", "Здоровье", you.hp, ` / ${you.maxHp}`)}
+      ${derivedRow(resIcon, resName, you.mp, ` / ${you.maxMp}`)}
       ${derivedRow("⚔️", "Атака", you.atk)}
       ${derivedRow("🛡️", "Защита", you.defense)}
+      ${derivedRow("🎯", "Дальность атаки", you.attackRange ?? 1, " кл.")}
       ${derivedRow("🏃", "Скорость хода", Number(you.speed ?? 2.0).toFixed(1), " кл/сек")}
+      ${derivedRow("🌿", "Реген здоровья", Number(you.hpRegen ?? 0).toFixed(2), " HP/сек")}
+      ${derivedRow(
+        you.resource === "energy" ? "⚡" : "💧",
+        `Реген: ${resName.toLowerCase()}`,
+        Number(you.resourceRegen ?? 0).toFixed(2),
+        " /сек"
+      )}
     </div>
   `;
 }

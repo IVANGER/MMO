@@ -5,6 +5,7 @@
 // по типу и перетаскиваются (drag & drop) в хотбар — слоты 5-8.
 
 import { net } from "../net.js";
+import { showTooltip, hideTooltip } from "./tooltip.js";
 
 export const INVENTORY_COLS = 6;
 export const INVENTORY_ROWS = 8;
@@ -71,12 +72,46 @@ function showInventoryWindow() {
     ev.target.closest?.(".gw-dragging")?.classList.remove("gw-dragging");
   });
 
-  // Двойной клик — сразу использовать (зелье)
+  // Двойной клик — надеть/снять экипировку или использовать расходник (День 13)
   el.addEventListener("dblclick", (ev) => {
     const cell = ev.target.closest?.("[data-item]");
     if (!cell) return;
-    net.send({ type: "useItem", itemId: cell.dataset.item });
+
+    const item = findItemById(cell.dataset.item);
+    if (!item) return;
+
+    if (item.slot === "consumable") {
+      net.send({ type: "useItem", itemId: cell.dataset.item });
+    } else if (item.equipped) {
+      net.send({ type: "unequipItem", itemId: cell.dataset.item });
+    } else {
+      net.send({ type: "equipItem", itemId: cell.dataset.item });
+    }
   });
+
+  // Tooltip при наведении (День 13)
+  el.addEventListener("mouseover", (ev) => {
+    const cell = ev.target.closest?.("[data-item]");
+    if (!cell) return;
+    const item = findItemById(cell.dataset.item);
+    if (item) showTooltip(item, ev.clientX, ev.clientY);
+  });
+
+  el.addEventListener("mousemove", (ev) => {
+    const cell = ev.target.closest?.("[data-item]");
+    if (!cell) return;
+    const item = findItemById(cell.dataset.item);
+    if (item) showTooltip(item, ev.clientX, ev.clientY);
+  });
+
+  el.addEventListener("mouseout", (ev) => {
+    if (ev.target.closest?.("[data-item]")) hideTooltip(80);
+  });
+}
+
+/** Найти предмет по id в загруженном списке */
+function findItemById(id) {
+  return items.find((i) => i.id === id) ?? null;
 }
 
 export function closeInventoryWindow() {
@@ -84,6 +119,7 @@ export function closeInventoryWindow() {
   el = null;
   open = false;
   draggingItemId = null;
+  hideTooltip();   // День 13: подсказка не должна висеть после закрытия
 }
 
 // ============ Отрисовка ============
@@ -141,15 +177,20 @@ function renderArtifactsHtml() {
     </div>`;
 }
 
-// Стопки по типу: 5 зелий → одна ячейка «🧪 ×5», в ячейке — id первого предмета
+// Стопки по типу: 5 зелий → одна ячейка «🧪 ×5», в ячейке — id первого предмета.
+// День 13: надетые предметы тоже показываем (помечены «Э»)
+// groupItems не фильтрует equipped, чтобы стопка отражала весь инвентарь.
 function groupItems(list) {
   const out = [];
   const idx = new Map();
 
   for (const it of list) {
-    if (!it || it.equipped) continue;
+    if (!it) continue;
     if (idx.has(it.type)) {
-      out[idx.get(it.type)].ids.push(it.id);
+      const g = out[idx.get(it.type)];
+      g.ids.push(it.id);
+      // Стопка надето — если надет хотя бы один экземпляр
+      if (it.equipped) g.equipped = true;
     } else {
       idx.set(it.type, out.length);
       out.push({ ...it, ids: [it.id] });
@@ -166,11 +207,14 @@ function escapeHtml(s) {
 
 function itemCellHtml(g) {
   const count = g.ids.length > 1 ? `<span class="gw-item-count">${g.ids.length}</span>` : "";
+  const equipped = g.equipped ? `<span class="gw-item-equipped">Э</span>` : "";
   return `
-    <div class="gw-slot gw-slot-item" data-item="${g.ids[0]}" draggable="true"
-         title="${escapeHtml(g.name)} · ЛКМ×2 — использовать, тяни в хотбар (5-8)">
+    <div class="gw-slot gw-slot-item ${g.equipped ? "gw-slot-equipped" : ""}"
+         data-item="${g.ids[0]}" draggable="true"
+         title="${escapeHtml(g.name)} · ЛКМ×2 — надеть/снять, тяни в хотбар (5-8)">
       <span class="gw-item-ico">${g.icon}</span>
       ${count}
+      ${equipped}
     </div>`;
 }
 
@@ -208,7 +252,8 @@ function renderInventoryHtml() {
 
     <div class="gw-inv-foot">
       Экипировка 8 · Артефакты ${ARTIFACT_SLOTS} · Рюкзак ${INVENTORY_COLS}×${INVENTORY_ROWS} ·
-      предметов: ${total} · ${total > 0 ? "перетащи в хотбар (5-8), ПКМ по слоту — очистить" : "пусто"}
+      предметов: ${total} · наведи — описание, ЛКМ×2 — надеть/снять,
+      тяни в хотбар (5-8), ПКМ по слоту — очистить
     </div>
   `;
 }

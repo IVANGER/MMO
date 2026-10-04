@@ -57,6 +57,11 @@ export function createCharacter(userId, slot, name, classType) {
   const attrs = { ...cls.baseAttributes };
   const d = calcAll(attrs);
 
+  // Ресурс навыков: энергия (воин) или мана (маг) — День 13.
+  // У воина вместо маны тратится энергия: выше потолок, но и реген быстрее.
+  const isEnergy = cls.resource === "energy";
+  const resMax = isEnergy ? d.energyMax : d.mp;
+
   const create = tx(() => {
     run(
       `INSERT INTO characters (
@@ -66,7 +71,7 @@ export function createCharacter(userId, slot, name, classType) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       charId, userId, slot, name.trim(), classType, 1, 0,
       d.hp, d.hp,
-      d.mp, d.mp,
+      resMax, resMax,          // mp/max_mp — это ресурс навыков (энергия или мана)
       d.meleeDamage, d.defense, d.moveSpeed,
       JSON.stringify(attrs), 0,
       0, now, now
@@ -137,6 +142,13 @@ function formatCharacter(row) {
   // Боевые параметры из характеристик (скорость атаки, крит) — День 10
   const derived = attrs ? calcAll(attrs) : null;
 
+  // Ресурс навыков: энергия (воин) или мана (маг) — День 13
+  const isEnergy = cls?.resource === "energy";
+  const resMax = derived ? (isEnergy ? derived.energyMax : derived.mp) : row.max_mp;
+  const resRegen = derived
+    ? (isEnergy ? derived.energyRegen : derived.mpRegen)
+    : 0.3;
+
   return {
     id: row.id,
     slot: row.slot,
@@ -150,7 +162,12 @@ function formatCharacter(row) {
     hp: row.hp,
     maxHp: row.max_hp,
     mp: row.mp,
-    maxMp: row.max_mp,
+    maxMp: resMax,             // потолок ресурса (энергия/мана) — День 13
+    resource: cls?.resource ?? "mana",
+    resourceName: isEnergy ? "Энергия" : "Мана",
+    hpRegen: derived?.hpRegen ?? 0.5,
+    resourceRegen: resRegen,
+    attackRange: cls?.attackRange ?? 1,   // радиус автоатаки — День 13
     atk: row.atk,
     defense: row.defense,
     speed: row.speed,

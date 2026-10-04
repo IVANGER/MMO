@@ -70,14 +70,15 @@ test("воин 1 ур.: регены, сопр. магии, скидка", () =>
   near(calcMerchantDiscount(a1), 0.04, "discount");
 });
 
-test("воин: calcAll считает все 16 параметров", () => {
+test("воин: calcAll считает все 18 параметров (16 + энергия Дня 13)", () => {
   const d = calcAll(a1);
   const keys = [
     "hp", "mp", "meleeDamage", "rangedDamage", "magicDamage", "defense",
     "attackSpeed", "critChance", "dodgeChance", "hitChance",
-    "hpRegen", "mpRegen", "moveSpeed", "moveRange", "magicResist", "merchantDiscount",
+    "hpRegen", "mpRegen", "energyMax", "energyRegen",
+    "moveSpeed", "moveRange", "magicResist", "merchantDiscount",
   ];
-  assert.equal(Object.keys(d).length, 16);
+  assert.equal(Object.keys(d).length, 18);
   for (const k of keys) assert.ok(d[k] !== undefined, k);
   assert.equal(d.hp, 136);
   assert.equal(d.mp, 42);

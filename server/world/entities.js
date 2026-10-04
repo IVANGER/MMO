@@ -16,8 +16,20 @@ export function createPlayerEntity(character) {
     maxHp: character.maxHp,
     mp: character.mp,
     maxMp: character.maxMp,
-    atk: character.atk ?? 1,         // из характеристик (День 9)
+    atk: character.atk ?? 1,         // из характеристик (День 9) + бонусы оружия
     defense: character.defense ?? 0,
+    baseAtk: character.atk ?? 1,    // база без экипировки — чтобы пересчитать бонусы
+    baseDefense: character.defense ?? 0,
+
+    // Бой (День 13)
+    attackRange: character.attackRange ?? 1,   // радиус автоатаки из класса (воин 1, маг 3)
+    resource: character.resource ?? "mana",    // mana | energy — как называть полоску
+    hpRegen: character.hpRegen ?? 0.5,         // HP в секунду
+    resourceRegen: character.resourceRegen ?? 0.3, // мана/энергия в секунду
+    slow: null,                                // замедление {mult, until}
+    buffs: [],                                 // баффы навыков [{stat, mult, until}]
+    casting: null,                             // каст {skillId, targetX, targetY, until}
+    equippedBonuses: { atk: 0, defense: 0 },   // сумма бонусов надетых предметов
 
     // Прогресс и характеристики — для окна персонажа (B) и полосы опыта (День 10)
     xp: character.xp ?? 0,
@@ -132,6 +144,15 @@ export function serializeEntity(e) {
     maxMp: e.maxMp,
     atk: e.atk,            // атака/защита для HUD и панели персонажа (День 9)
     defense: e.defense,
+
+    // Бой и ресурсы (День 13): радиус атаки, тип ресурса, замедление, каст
+    attackRange: e.attackRange ?? 1,
+    resource: e.resource ?? "mana",
+    resourceName: e.resource === "energy" ? "Энергия" : "Мана",
+    hpRegen: e.hpRegen ?? 0.5,
+    resourceRegen: e.resourceRegen ?? 0.3,
+    slow: e.slow ?? null,
+    casting: e.casting ?? null,
 
     // Прогресс и характеристики (только у игроков) — окно персонажа, полоса опыта
     xp: e.xp,

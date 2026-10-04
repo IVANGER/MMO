@@ -82,6 +82,10 @@ export function addXp(charId, amount) {
 
     const d = calcAll(attrs);
 
+    // Ресурс навыков при level-up: энергия (воин) или мана (маг) — День 13
+    const isEnergy = cls?.resource === "energy";
+    const resMax = isEnergy ? d.energyMax : d.mp;
+
     run(
       `UPDATE characters
        SET level = ?, xp = ?, attrs = ?, attr_points = ?,
@@ -89,8 +93,8 @@ export function addXp(charId, amount) {
            hp = ?, mp = ?, last_online = ?
        WHERE id = ?`,
       next.level, next.xp, JSON.stringify(attrs), attrPoints,
-      d.hp, d.mp, d.meleeDamage, d.defense, d.moveSpeed,
-      d.hp, d.mp, Date.now(), charId
+      d.hp, resMax, d.meleeDamage, d.defense, d.moveSpeed,
+      d.hp, resMax, Date.now(), charId
     );
 
     logger.info(`Level up: ${row.id} → уровень ${next.level} (+${3 * next.levelsGained} очков)`);

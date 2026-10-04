@@ -52,6 +52,10 @@ let inventoryItems = [];                    // предметы с сервер�
 let potionCooldownUntil = 0;                // общий кулдаун зелий (мс)
 let notice = null;                          // всплывающая строка над HUD {text, until}
 
+// День 13: каст (телепорт мага) — ждём 2 сек, рисуем полосу и цель
+let casting = null;                         // {skillId, until, targetX, targetY}
+let mouseCell = null;                       // клетка под курсором {x, y} — для телепорта
+
 const MIN_TILE_SIZE = 16;
 const MAX_TILE_SIZE = 96;
 const TOOLBAR_HEIGHT = 60;
@@ -125,10 +129,17 @@ function handleKey(key) {
     return true;
   }
 
-  // Esc — закрыть окно / отменить атаку
+  // Esc — закрыть окно / отменить атаку / отменить каст
   if (key === "escape") {
     if (isAnyWindowOpen()) {
       closeAllWindows();
+      return true;
+    }
+    if (casting) {   // День 13: отмена каста
+      casting = null;
+      net.send({ type: "cancelCast" });
+      showNotice("Каст отменён");
+      render();
       return true;
     }
     if (attackTargetId) {
@@ -140,14 +151,30 @@ function handleKey(key) {
     return false;
   }
 
-  // ============ 1-4 — навыки (День 12) ============
+  // ============ 1-4 — навыки (День 12/13) ============
   if (key >= "1" && key <= "4") {
     const skill = skillsList[Number(key) - 1];
-    if (skill) {
-      net.send({ type: "useSkill", skillId: skill.id, targetId: attackTargetId });
-    } else {
+    if (!skill) {
       showNotice("Слот навыка пуст");
+      return true;
     }
+
+    // Телепорт мага — целимся клеткой под курсором (День 13)
+    if (skill.type === "blink") {
+      if (!mouseCell) {
+        showNotice("Наведи курсор, куда телепортироваться");
+        return true;
+      }
+      net.send({
+        type: "useSkill",
+        skillId: skill.id,
+        targetX: mouseCell.x,
+        targetY: mouseCell.y,
+      });
+      return true;
+    }
+
+    net.send({ type: "useSkill", skillId: skill.id, targetId: attackTargetId });
     return true;
   }
 
@@ -239,6 +266,9 @@ function createCanvas() {
 
   canvas.addEventListener("click", onCanvasClick);
   canvas.addEventListener("contextmenu", onCanvasContextMenu);
+
+  // День 13: следим за клеткой под курсором (цель телепорта мага)
+  canvas.addEventListener("mousemove", onCanvasMouseMove);
 
   // Drag & Drop: предмет из инвентаря → слот хотбара (День 12)
   canvas.addEventListener("dragover", (e) => {
@@ -360,6 +390,9 @@ function render() {
   // Подсветка текущей цели атаки (День 10)
   drawAttackTarget(ctx);
 
+  // Полоса каста над игроком (День 13 — телепорт мага)
+  drawCastBar(ctx);
+
   ctx.restore();
 
   // HUD (поверх мира, в экранных координатах)
@@ -382,6 +415,47 @@ function render() {
 }
 
 // ============ HUD Дня 12: вид слотов, уведомления, хотбар ============
+
+// Полоса каста над игроком + метка цели телепорта (День 13)
+function drawCastBar(ctx) {
+  if (!casting || !you) return;
+
+  const now = Date.now();
+  const left = casting.until - now;
+
+  // Срок вышел — ждём ответа сервера (castFinished), полосу не рисуем
+  if (left <= 0) return;
+
+  const total = 2000;   // castTime телепорта, сек → мс
+  const ratio = Math.max(0, Math.min(1, left / total));
+
+  // Цель телепорта — клетка под курсором
+  if (mouseCell) {
+    const cx = (mouseCell.x + 0.5) * tileSize;
+    const cy = (mouseCell.y + 0.5) * tileSize;
+
+    ctx.strokeStyle = "#a78bfa";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx - tileSize / 2 + 1, cy - tileSize / 2 + 1, tileSize - 2, tileSize - 2);
+
+    ctx.fillStyle = "rgba(167, 139, 250, 0.18)";
+    ctx.fillRect(cx - tileSize / 2 + 2, cy - tileSize / 2 + 2, tileSize - 4, tileSize - 4);
+  }
+
+  // Полоса прогресса каста над головой игрока
+  const px = (you.x + 0.5) * tileSize;
+  const py = (you.y + 0.5) * tileSize - tileSize * 0.85;
+  const w = 44;
+  const h = 6;
+
+  ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+  ctx.fillRect(px - w / 2, py, w, h);
+  ctx.fillStyle = "#a78bfa";
+  ctx.fillRect(px - w / 2, py, w * ratio, h);
+  ctx.strokeStyle = "#c4b5fd";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px - w / 2 + 0.5, py + 0.5, w - 1, h - 1);
+}
 
 function skillsView() {
   return skillsList.slice(0, 4).map((s) => ({
@@ -464,6 +538,31 @@ function onCanvasContextMenu(e) {
 }
 
 // ============ Клик ============
+
+// День 13: запоминаем клетку под курсором — по ней целится телепорт мага
+function onCanvasMouseMove(e) {
+  if (!location || !canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (my > worldViewport.height) {
+    mouseCell = null;
+    return;
+  }
+
+  const tx = Math.floor((mx - camera.x) / tileSize);
+  const ty = Math.floor((my - camera.y) / tileSize);
+
+  if (tx < 0 || tx >= location.width || ty < 0 || ty >= location.height) {
+    mouseCell = null;
+    return;
+  }
+
+  // Во время каста цель зафиксирована — мышь не переводит каст (День 13, п.5 ТЗ)
+  mouseCell = { x: tx, y: ty };
+}
 
 function onCanvasClick(e) {
   if (!location || !you) return;
@@ -755,6 +854,13 @@ net.on("entityMoved", (msg) => {
         you.path = [];
       }
       you.state = upd.state;
+
+      // HP и ресурс: реген идёт каждый тик (День 13) — обновляем полоски
+      if (upd.hp !== undefined) you.hp = upd.hp;
+      if (upd.maxHp !== undefined) you.maxHp = upd.maxHp;
+      if (upd.mp !== undefined) you.mp = upd.mp;
+      if (upd.maxMp !== undefined) you.maxMp = upd.maxMp;
+      if (upd.slow !== undefined) you.slow = upd.slow;
       continue;
     }
 
@@ -926,6 +1032,66 @@ net.on("skillUsed", (msg) => {
 
 net.on("skillCooldown", (msg) => {
   showNotice(`Навык перезаряжается: ${msg.left} с`);
+  render();
+});
+
+// ============ Касты мага (День 13) ============
+
+net.on("castStarted", (msg) => {
+  if (you) you.mp = msg.mp;
+  casting = { skillId: msg.skillId, until: msg.until };
+  const s = skillsList.find((sk) => sk.id === msg.skillId);
+  if (s) s.cooldownUntil = msg.cooldownUntil;
+  showNotice("Каст…");
+  render();
+});
+
+net.on("castFinished", (msg) => {
+  casting = null;
+  if (you && msg.mp !== undefined) you.mp = msg.mp;
+  // Сервер прислал новую позицию (телепорт)
+  if (you && msg.x !== undefined) {
+    you.x = msg.x;
+    you.y = msg.y;
+    you.targetX = msg.x;
+    you.targetY = msg.y;
+    you.serverX = msg.x;
+    you.serverY = msg.y;
+    you.path = [];
+    you.state = "idle";
+  }
+  showNotice("Телепорт!");
+  render();
+});
+
+net.on("castInterrupted", (msg) => {
+  casting = null;
+  showNotice(msg.reason ? `Каст прерван: ${msg.reason}` : "Каст прерван");
+  render();
+});
+
+net.on("castCancelled", () => {
+  casting = null;
+  render();
+});
+
+// Замедление (frost_nova) — подсветка на мобе
+net.on("entityEffect", (msg) => {
+  if (msg.effect !== "slow") return;
+  const e = entities.get(msg.targetId);
+  if (!e) return;
+  e.slowUntil = Date.now() + (msg.duration ?? 3) * 1000;
+  render();
+});
+
+// ============ Экипировка (День 13) ============
+
+net.on("itemEquipped", (msg) => {
+  if (you) {
+    if (msg.atk !== undefined) you.atk = msg.atk;
+    if (msg.defense !== undefined) you.defense = msg.defense;
+  }
+  showNotice(msg.name ? `${msg.name} — надето` : "Предмет снят");
   render();
 });
 

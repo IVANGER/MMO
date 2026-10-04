@@ -10,6 +10,7 @@ import {
 import { updateMovements } from "./movement.js";
 import { updateMobs } from "./mobAI.js";
 import { updatePlayerCombat, updateMobCombat } from "./combat.js";
+import { updateRegen, updateCasts } from "./regen.js";
 import { checkTransitions } from "./transition.js";
 import { isVisibleEntity } from "./entities.js";
 import { getAllSessions } from "../network/sessions.js";
@@ -51,11 +52,17 @@ function tick() {
     // 2. Движение всех сущностей (игроки + мобы)
     const moved = updateMovements(loc, dt);
 
+    // 2.1. Реген HP и ресурса (мана/энергия) — День 13
+    const regenChanged = updateRegen(loc, dt);
+
+    // 2.2. Завершение кастов (телепорт мага) — День 13
+    const castChanged = updateCasts(loc, Date.now());
+
     // 3. Переходы между локациями
     checkTransitions(loc);
 
     // 4. Broadcast изменений
-    const changed = mergeChanged(moved, mobChanged, playerCombatChanged, mobCombatChanged);
+    const changed = mergeChanged(moved, mobChanged, playerCombatChanged, mobCombatChanged, regenChanged, castChanged);
     if (changed.length > 0) {
       broadcastLocationUpdate(loc, changed);
     }
@@ -121,7 +128,8 @@ function broadcastLocationUpdate(loc, changedEntities) {
   }
 }
 
-// Игрок — только позиция и состояние; моб — ещё HP и агро (для полоски)
+// Моб — позиция, HP и агро (для полоски).
+// Игрок — ещё HP/MP: реген Дня 13 идёт каждый тик, клиенту нужно видеть полоски.
 function serializeMove(e) {
   const base = {
     id: e.id,
@@ -135,6 +143,13 @@ function serializeMove(e) {
     base.hp = e.hp;
     base.maxHp = e.maxHp;
     base.aggro = e.aggro === true;
+  } else if (e.type === "player") {
+    base.type = "player";
+    base.hp = e.hp;
+    base.maxHp = e.maxHp;
+    base.mp = e.mp;          // ресурс навыков (энергия/мана) — День 13
+    base.maxMp = e.maxMp;
+    base.slow = e.slow ?? null;
   }
 
   return base;

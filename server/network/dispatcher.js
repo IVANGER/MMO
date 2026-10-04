@@ -26,8 +26,10 @@ import {
   handleGetHotbar,
   handleSetHotbarSlot,
   handleClearHotbarSlot,
+  handleEquipItem,
+  handleUnequipItem,
 } from "../api/inventoryHandlers.js";
-import { handleGetSkills, handleUseSkill } from "../api/skillHandlers.js";
+import { handleGetSkills, handleUseSkill, handleCancelCast } from "../api/skillHandlers.js";
 import { getSession, updateActivity } from "./sessions.js";
 
 const PUBLIC = new Set(["register", "login", "resume", "pong", "hello"]);
@@ -61,6 +63,13 @@ const ROUTES = {
   getHotbar: handleGetHotbar,
   setHotbarSlot: handleSetHotbarSlot,
   clearHotbarSlot: handleClearHotbarSlot,
+
+  // Экипировка (День 13)
+  equipItem: handleEquipItem,
+  unequipItem: handleUnequipItem,
+
+  // Касты (День 13)
+  cancelCast: handleCancelCast,
 };
 
 export function dispatch(ws, msg) {
