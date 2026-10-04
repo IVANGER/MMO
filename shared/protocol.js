@@ -28,6 +28,9 @@ export const MSG = {
   ATTACK_CLEARED: "attackCleared",
   XP_GAINED: "xpGained",
 
+  PLAYER_HIT: "playerHit",
+  YOU_DIED: "youDied",
+
   // Сущности
   ENTITY_JOINED: "entityJoined",
   ENTITY_LEFT: "entityLeft",

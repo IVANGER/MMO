@@ -1,8 +1,14 @@
 # 📘 HERO CAMP — Полное резюме проекта
 
-**Дата:** 3 октября 2026
-**Статус:** День 10 завершён (автоатака, окна B/I/M, полоса опыта, река в forest_2 снизу, скорости мобов = скорости игрока)
-**Прогресс MVP:** ~55%
+**Дата:** 4 октября 2026
+**Статус:** День 11 завершён (мобы атакуют игроков: урон, крит, кулдаун, смерть и респавн; слоты экипировки и артефактов в инвентаре)
+**Прогресс MVP:** ~57%
+
+> **📌 Правило документирования (с Дня 11, обязательно для будущих правок):**
+> каждый день/правка в резюме обязаны содержать подраздел **«📁 Файлы, затронутые»** —
+> полный список файлов, которые **менялись** (новые выделены), и отдельно —
+> файлы, **проверенные без изменений**. Пример — см. раздел «День 11».
+> Это единственный способ быстро понять blast radius правки при возврате к задаче.
 
 ---
 
@@ -572,6 +578,96 @@ export const TILE_SPRITES = {
 16. ✅ `shared/tiles.js` — тайл `tree` → **`dense_forest`** («Чаща»), обновлены `forest_1`, `forest_2`, тест
 
 **Проверка после правок:** `node --test` → **70/70 pass**; живой `liveWorld` → **34/34**.
+
+---
+
+## ⚔️ День 11 — Мобы атакуют игроков (бой двусторонний)
+
+**Цель:** моб в радиусе атаки бьёт игрока автоматически. Симметрично Дню 10 — теперь бьют друг друга.
+
+### Сервер
+
+1. ✅ **`server/world/combat.js`** — `updateMobCombat(loc, now)` + `strikeMob` + `handlePlayerDeath`:
+   - моб бьёт, если `aggro === true` ИЛИ `provoked`, цель — `mob.targetId`, дистанция ≤ `ATTACK_RANGE` (1.2), кулдаун прошёл;
+   - **урон моба:** `max(1, mob.atk − player.defense)`, крит ×2 (`critChance`);
+   - кулдаун — **та же** `attackCooldownMs()`, что и у игрока (`1000 / attackSpeed`, мин 400 мс);
+   - ударом шлётся **`playerHit`** жертве (`replyToCharacter`) и **`combatEvent`** всей локации
+     (`targetType: "player"`, чтобы соседи рисовали цифру урона);
+   - **смерть игрока:** `entityStore.markDead` → `player.dead = true` → удаление из `loc.entities`
+     → `entityLeft` всем → `youDied` жертве → **все мобы теряют цель** (`targetId = null`, `aggro = false`).
+2. ✅ **`server/world/world.js`** — в тик после `updatePlayerCombat` вызывается `updateMobCombat`;
+   `mergeChanged(moved, mobChanged, ...combatArrays)` теперь принимает любое число боевых массивов
+   (мёртвый игрок отфильтровывается `isVisibleEntity`).
+3. ✅ **`server/world/entities.js`** — в `createMobEntity` добавлены `attackSpeed` (1.0),
+   `critChance` (0.03), `nextAttackAt: 0`.
+4. ✅ **`server/content/mobs/monsters.js`** — `attackSpeed`/`critChance` каждому мобу:
+   гоблин **1.0 / 0.03**, волк **1.2 / 0.05**, орк **0.8 / 0.08**.
+5. ✅ **`server/world/mobAI.js`** — остановка в радиусе атаки была сделана ещё в Дне 9
+   (`cellDistance <= mob.attackRange` → `path = []`, `state = "idle"`), проверено — менять не нужно.
+6. ✅ **`server/api/worldHandlers.js`** — `handleRespawn` уже корректен: удаляет труп из `loc.entities`,
+   `markAlive`, минус 10% XP (`loseXpOnDeath`), пересоздаёт сущность со `hp = 1` в `forest_1 (5,7)`.
+   Проверено живым тестом.
+
+### Клиент
+
+7. ✅ **`shared/protocol.js`** — `PLAYER_HIT: "playerHit"`, `YOU_DIED: "youDied"`.
+8. ✅ **`client/scenes/worldScene.js`**:
+   - `playerHit` → `you.hp/maxHp`, `showDamageNumber` над игроком, `flashScreen()` (вспышка),
+     перерисовка HUD;
+   - `youDied` → сброс цели/пути и `switchScene("death", { killedBy })` (экран «Ты мёртв»);
+   - `combatEvent` **не дублирует** цифру урона, если жертва — это мы (`targetType === "player"`
+     и `targetId === you.id`) — это делает `playerHit`.
+
+### Доп. правки по заявке
+
+9. ✅ **`client/ui/characterWindow.js`** — убрана строка «📏 Дальность хода» (не влияет на движение).
+10. ✅ **`client/ui/inventory.js` + `client/style.css`** — в инвентаре слева **слоты экипировки**:
+    - сверху: **шлем** · **амулет**;
+    - посередине: **перчатки** · **броня** · справа **кольцо 1 / кольцо 2** (стопкой);
+    - снизу: **сапоги** · **плащ**;
+    - справа колонкой **на всю высоту** — **артефакты 1–5** (`ARTIFACT_SLOTS = 5`);
+    - ниже — прежняя сетка рюкзака 6×8 = 48. Ширина окна 420 → **520 px**.
+
+### Тесты
+
+- ✅ **`node --test tests/**/*.test.js`** → **70/70 pass, fail 0**.
+- ✅ **`node --check`** — 11 изменённых JS-файлов, 0 ошибок.
+- ✅ Новый живой тест **`scripts/liveMobCombat.js`** → **24/24** (свежая БД `data/live_d11.db`, порт 8098):
+  - гоблин бьёт игрока (**7 ударов**, мин. интервал **992 мс** — кулдаун ≥ 1/сек), гоблин убит, **+11 XP**;
+  - **пассивный волк бьёт в ответ** после удара (`provoked`), урон **4** = `max(1, 18 − 14)`;
+  - **орк атакует первым**, крит **32** = `max(1, 30 − 14) × 2`, HP 104 → 64;
+  - **смерть**: `youDied` (убит: Орк) + `entityLeft`, **после смерти мобы не бьют труп** (0 лишних `playerHit`);
+  - **респавн**: `forest_1`, **HP = 1**, позиция **(5,7)**, **потеря 10% XP** (11 → 1).
+
+**Баланс (Воин 1 ур. vs Гоблин):** воин бьёт на 13, гоблин — на 4. Воин убивает гоблина за ~8 сек,
+теряя ~24% HP; если не отвечать — гоблин убивает за ~34 сек. Орк (16 урона/сек) убивает воина за ~8.5 сек — опасен.
+
+### 📁 Файлы, затронутые (обновление Дня 11)
+
+**Изменено (10):**
+
+| Файл | Что менялось |
+|---|---|
+| `server/world/combat.js` | `+updateMobCombat()`, `+strikeMob()`, `+handlePlayerDeath()` |
+| `server/world/world.js` | импорт и вызов `updateMobCombat`, `mergeChanged(..., combatArrays)` |
+| `server/world/entities.js` | в `createMobEntity`: `attackSpeed`, `critChance`, `nextAttackAt` |
+| `server/content/mobs/monsters.js` | `attackSpeed` / `critChance` для гоблина, волка, орка |
+| `shared/protocol.js` | `+PLAYER_HIT`, `+YOU_DIED` |
+| `client/scenes/worldScene.js` | обработчики `playerHit` и `youDied`, `flashScreen()`, guard в `combatEvent` |
+| `client/ui/characterWindow.js` | убрана строка «Дальность хода» |
+| `client/ui/inventory.js` | слоты экипировки (8) + колонка артефактов 1–5, подвал окна |
+| `client/style.css` | `.gw-eq-slot`, `.gw-eq-p*`, `.gw-eq-rings`, `.gw-artifacts`, ширина окна 520px |
+| `.gitignore` | `+data/*.db-shm`, `+data/*.db-wal` (WAL-файлы открытого сервера не должны попадать в git) |
+
+**Новое (2):**
+
+| Файл | Назначение |
+|---|---|
+| `scripts/liveMobCombat.js` | живой тест Дня 11 (24 проверки: кулдаун, урон, крит, смерть, респавн) |
+| `PROJECT_RESUME.md` | этот раздел + правило документирования |
+
+**Проверено, но НЕ менялось (3):** `server/world/mobAI.js` (остановка в радиусе атаки уже была),
+`server/api/worldHandlers.js` (`handleRespawn` уже корректен), `server/network/dispatcher.js` (роуты в порядке).
 
 ---
 

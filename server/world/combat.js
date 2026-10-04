@@ -9,6 +9,7 @@ import { addXp, calcKillXp, getXpToNextLevel } from "../character/leveling.js";
 import { createRng, chance } from "../rng.js";
 import { getAllSessions } from "../network/sessions.js";
 import { logger } from "../log.js";
+import * as entityStore from "./entityStore.js";
 
 export const ATTACK_RANGE = 1.2;    // радиус атаки в клетках (вплотную)
 const BASE_COOLDOWN_MS = 1000;      // базовый кулдаун между ударами
@@ -62,6 +63,135 @@ export function updatePlayerCombat(loc, now = Date.now()) {
   }
 
   return changed;
+}
+
+/**
+ * Автоатака мобов по игрокам (День 11).
+ * Мобы бьют, если:
+ *  - моб агрессивный (aggro === true) ИЛИ provoked
+ *  - игрок в радиусе атаки моба (ATTACK_RANGE)
+ *  - кулдаун моба прошёл
+ *
+ * @returns {object[]} изменившиеся сущности (для broadcast)
+ */
+export function updateMobCombat(loc, now = Date.now()) {
+  const changed = [];
+
+  for (const mob of loc.entities.values()) {
+    if (mob.type !== "mob") continue;
+    if (mob.aiState === "dead") continue;
+    if (!mob.aggro && !mob.provoked) continue;
+
+    // Цель — текущий targetId (игрок)
+    const target = mob.targetId ? loc.entities.get(mob.targetId) : null;
+
+    // Цель исчезла / умерла — сбрасываем
+    if (!target || target.type !== "player" || target.dead) {
+      mob.targetId = null;
+      mob.nextAttackAt = 0;
+      continue;
+    }
+
+    // Вне радиуса атаки — не бьём (моб подойдёт сам через mobAI)
+    if (cellDistance(mob, target) > ATTACK_RANGE) continue;
+
+    // Кулдаун не прошёл — ждём
+    if (now < (mob.nextAttackAt ?? 0)) continue;
+
+    strikeMob(loc, mob, target, now);
+    changed.push(mob, target);
+  }
+
+  return changed;
+}
+
+// ============ Удар моба ============
+
+function strikeMob(loc, mob, player, now) {
+  mob.nextAttackAt = now + attackCooldownMs(mob);
+
+  const crit = chance(rng, mob.critChance ?? 0.03);
+  const raw = (mob.atk ?? 1) - (player.defense ?? 0);
+  const damage = Math.max(1, Math.floor(raw * (crit ? 2 : 1)));
+
+  player.hp = Math.max(0, player.hp - damage);
+
+  // Игроку — визуал урона (HP в HUD, цифра над головой, вспышка экрана)
+  replyToCharacter(player.id, {
+    type: "playerHit",
+    attackerId: mob.id,
+    attackerName: mob.name,
+    damage,
+    crit,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    x: player.x,
+    y: player.y,
+  });
+
+  // Всем в локации — для отображения цифры урона над игроком
+  broadcast(loc.id, {
+    type: "combatEvent",
+    attackerId: mob.id,
+    targetId: player.id,
+    targetType: "player",
+    damage,
+    crit,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    killed: player.hp <= 0,
+    x: player.x,
+    y: player.y,
+  });
+
+  logger.debug(
+    `Mob ${mob.name} hit ${player.name} for ${damage}${crit ? " (crit)" : ""} ` +
+    `(${player.hp}/${player.maxHp} HP)`
+  );
+
+  if (player.hp <= 0) handlePlayerDeath(loc, mob, player);
+}
+
+// ============ Смерть игрока ============
+
+function handlePlayerDeath(loc, killer, player) {
+  logger.info(`Player ${player.name} died from ${killer.name} in ${loc.id}`);
+
+  // 1. Помечаем в БД
+  entityStore.markDead(player.id, killer.id);
+
+  // 2. Помечаем в runtime
+  player.dead = true;
+  player.hp = 0;
+  player.path = [];
+  player.state = "idle";
+  player.targetId = null;
+  player.nextAttackAt = 0;
+
+  // 3. Убираем из loc.entities (труп невидим)
+  loc.entities.delete(player.id);
+
+  // 4. Сообщаем всем в локации — игрок исчез
+  broadcast(loc.id, {
+    type: "entityLeft",
+    entityId: player.id,
+  });
+
+  // 5. Игроку — сообщение о смерти (экран «Ты мёртв»)
+  replyToCharacter(player.id, {
+    type: "youDied",
+    killedBy: killer.name,
+  });
+
+  // 6. Все мобы, которые били этого игрока — теряют цель (не бьют труп)
+  for (const m of loc.entities.values()) {
+    if (m.type !== "mob") continue;
+    if (m.targetId === player.id) {
+      m.targetId = null;
+      m.aggro = false;
+      m.nextAttackAt = 0;
+    }
+  }
 }
 
 export function clearTarget(entity) {

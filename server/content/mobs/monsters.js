@@ -28,6 +28,10 @@ export const MONSTERS = {
     leashRange: 10,      // не уходит дальше от спавна
     attackRange: 1.2,    // дистанция атаки (День 9)
 
+    // Бой (День 11): 1 удар/сек, 3% крита
+    attackSpeed: 1.0,
+    critChance: 0.03,
+
     xp: 10,
     respawnSec: 30,
 
@@ -56,6 +60,10 @@ export const MONSTERS = {
     leashRange: 10,
     attackRange: 1.2,
 
+    // Бой (День 11): волк чуть быстрее, крит 5%
+    attackSpeed: 1.2,
+    critChance: 0.05,
+
     xp: 15,
     respawnSec: 40,
 
@@ -82,6 +90,10 @@ export const MONSTERS = {
     wanderRadius: 2,
     leashRange: 10,
     attackRange: 1.2,
+
+    // Бой (День 11): орк бьёт реже, но зато критует чаще
+    attackSpeed: 0.8,
+    critChance: 0.08,
 
     xp: 25,
     respawnSec: 60,

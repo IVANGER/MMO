@@ -9,7 +9,7 @@ import {
 } from "./loadManager.js";
 import { updateMovements } from "./movement.js";
 import { updateMobs } from "./mobAI.js";
-import { updatePlayerCombat } from "./combat.js";
+import { updatePlayerCombat, updateMobCombat } from "./combat.js";
 import { checkTransitions } from "./transition.js";
 import { isVisibleEntity } from "./entities.js";
 import { getAllSessions } from "../network/sessions.js";
@@ -43,7 +43,10 @@ function tick() {
     const mobChanged = updateMobs(loc, dt);
 
     // 1.5. Автоатака игроков по целям (День 10): урон, кулдаун, опыт
-    const combatChanged = updatePlayerCombat(loc, now);
+    const playerCombatChanged = updatePlayerCombat(loc, now);
+
+    // 1.6. Автоатака мобов по игрокам (День 11): урон, кулдаун, смерть игрока
+    const mobCombatChanged = updateMobCombat(loc, now);
 
     // 2. Движение всех сущностей (игроки + мобы)
     const moved = updateMovements(loc, dt);
@@ -52,7 +55,7 @@ function tick() {
     checkTransitions(loc);
 
     // 4. Broadcast изменений
-    const changed = mergeChanged(moved, mobChanged, combatChanged);
+    const changed = mergeChanged(moved, mobChanged, playerCombatChanged, mobCombatChanged);
     if (changed.length > 0) {
       broadcastLocationUpdate(loc, changed);
     }
@@ -75,11 +78,13 @@ function tick() {
 
 // ============ Слияние изменений (без дублей) ============
 
-function mergeChanged(moved, mobChanged, combatChanged = []) {
+function mergeChanged(moved, mobChanged, ...combatArrays) {
   const map = new Map();
   for (const e of moved) map.set(e.id, e);
   for (const e of mobChanged) map.set(e.id, e);
-  for (const e of combatChanged) map.set(e.id, e);
+  for (const arr of combatArrays) {
+    for (const e of arr) map.set(e.id, e);
+  }
   return [...map.values()].filter(isVisibleEntity);
 }
 

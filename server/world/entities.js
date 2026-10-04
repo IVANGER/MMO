@@ -80,6 +80,11 @@ export function createMobEntity(id, spawn, tmpl) {
     leashRange: tmpl.leashRange ?? 10,
     attackRange: tmpl.attackRange ?? 1.2,
 
+    // Бой мобов (День 11): скорость атаки, крит, кулдаун следующего удара
+    attackSpeed: tmpl.attackSpeed ?? 1.0,   // ударов в секунду → кулдаун
+    critChance: tmpl.critChance ?? 0.03,    // шанс крита моба
+    nextAttackAt: 0,                        // время следующего удара (мс)
+
     xp: tmpl.xp ?? 0,
     respawnSec: spawn.respawnSec ?? tmpl.respawnSec ?? 30,
 

@@ -97,7 +97,6 @@ function renderCharacterHtml(you) {
       ${derivedRow("⚔️", "Атака", you.atk)}
       ${derivedRow("🛡️", "Защита", you.defense)}
       ${derivedRow("🏃", "Скорость хода", Number(you.speed ?? 2.0).toFixed(1), " кл/сек")}
-      ${derivedRow("📏", "Дальность хода", you.moveRange ?? 3, " клеток")}
     </div>
   `;
 }

@@ -679,6 +679,9 @@ net.on("attackCleared", () => {
 });
 
 net.on("combatEvent", (msg) => {
+  // Удар по НАМ — обрабатывает playerHit (День 11), цифру не дублируем
+  if (msg.targetType === "player" && msg.targetId === you?.id) return;
+
   const mob = entities.get(msg.targetId);
   if (mob) {
     mob.hp = msg.hp;
@@ -694,6 +697,37 @@ net.on("combatEvent", (msg) => {
   showDamageNumber(msg.x, msg.y, msg.damage, msg.crit);
   render();
 });
+
+// ============ Моб бьёт игрока (День 11) ============
+
+net.on("playerHit", (msg) => {
+  if (!you) return;
+
+  you.hp = msg.hp;
+  you.maxHp = msg.maxHp ?? you.maxHp;
+
+  // Цифра урона над игроком + вспышка экрана
+  showDamageNumber(msg.x, msg.y, msg.damage, msg.crit);
+  flashScreen();
+  render();
+});
+
+net.on("youDied", (msg) => {
+  attackTargetId = null;
+  currentPath = [];
+  pathInvalid = null;
+  switchScene("death", { killedBy: msg.killedBy });
+});
+
+// Вспышка экрана при получении урона
+function flashScreen() {
+  if (!canvas) return;
+  canvas.style.transition = "filter 0.1s";
+  canvas.style.filter = "brightness(1.6) hue-rotate(-30deg)";
+  setTimeout(() => {
+    if (canvas) canvas.style.filter = "";
+  }, 120);
+}
 
 net.on("xpGained", (msg) => {
   if (!you) return;
