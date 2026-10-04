@@ -6,7 +6,6 @@ import {
   getLoadedLocation,
   getLoadedCount,
   getLoadedIds,
-  unloadLocation,
 } from "./loadManager.js";
 import { updateMovements } from "./movement.js";
 import { updateMobs } from "./mobAI.js";
@@ -67,13 +66,8 @@ function tick() {
     }
   }
 
-  // Раз в 30 секунд — выгружаем пустые локации (сохраняя мобов)
-  if (tickCount % Math.round(30000 / CONFIG.TICK_MS) === 0) {
-    for (const locId of [...getLoadedIds()]) {
-      unloadLocation(locId);
-    }
-  }
-
+  // Раз в 60 секунд — выгружаем пустые локации (сохраняя мобов).
+  // Делается в loadManager.startAutoUnload() — здесь не дублируем.
   if (tickCount % Math.round(5000 / CONFIG.TICK_MS) === 0) {
     logger.debug(`Tick #${tickCount}, locations: ${getLoadedCount()}`);
   }

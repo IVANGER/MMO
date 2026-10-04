@@ -48,7 +48,8 @@ const MAX_TILE_SIZE = 96;
 const TOOLBAR_HEIGHT = 60;
 
 // ============ Интерполяция ============
-const INTERP_SPEED = 8;          // клеток/сек — плавный догон чужой сущности
+const INTERP_SPEED_PLAYER = 8;   // клеток/сек — плавный догон чужого игрока
+const INTERP_SPEED_MOB = 15;     // мобы «дёргаются» сильнее — догоняем быстрее (День 10)
 const TELEPORT_TILES = 5;        // разница больше — телепорт без интерполяции
 const SELF_TELEPORT_TILES = 4;   // своя позиция расходится настолько — телепорт (переход, читы)
 const CORRECT_THRESHOLD = 1.2;   // фазовое расхождение с тиками ≤1 клетки; больше — подтягиваем
@@ -359,6 +360,24 @@ function onCanvasClick(e) {
 
   if (tx < 0 || tx >= location.width || ty < 0 || ty >= location.height) return;
 
+  // ============ 1. Клик по мобу → автоатака (День 10) ============
+  // Проверяем ДО движения: моб под курсором = цель, а не точка пути
+  const mob = findMobAtCell(tx, ty);
+  if (mob) {
+    attackTargetId = mob.id;
+    net.send({ type: "attack", targetId: mob.id });
+    render();
+    return;
+  }
+
+  // Клик по земле — снимаем атаку, если она была
+  if (attackTargetId) {
+    attackTargetId = null;
+    net.send({ type: "stopAttack" });
+  }
+
+  // ============ 2. Иначе — движение ============
+
   // Непроходимо (тайл или объект) — красная подсветка
   if (!isCellWalkable(location, tx, ty)) {
     flashInvalid(tx, ty);
@@ -386,8 +405,7 @@ function onCanvasClick(e) {
     return;
   }
 
-  // Дальность хода (День 9): дальше moveRange за один клик не идём —
-  // красная подсветка (как у непроходимой клетки) и перс не двинется
+  // Дальность хода (День 10): ограничение убрано — идём по всему пути
   currentPath = path;
   you.path = path;
   you.state = path.length > 0 ? "moving" : "idle";
@@ -494,9 +512,11 @@ function moveSelf(dt) {
 function interpolateOthers(dt) {
   if (otherEntities.length === 0) return;
 
-  const step = INTERP_SPEED * dt;
-
   for (const e of otherEntities) {
+    // Мобы обновляются реже и рывками — им нужен более быстрый догон
+    const speed = e.type === "mob" ? INTERP_SPEED_MOB : INTERP_SPEED_PLAYER;
+    const step = speed * dt;
+
     const tx = e.targetX ?? e.x;
     const ty = e.targetY ?? e.y;
 
@@ -603,7 +623,8 @@ net.on("entityMoved", (msg) => {
         you.y = upd.y;
         you.targetX = upd.x;
         you.targetY = upd.y;
-        rebuildPathToGoal();   // путь начинался от старой точки — перестраиваем
+        currentPath = [];   // путь начинался от старой точки — сбрасываем
+        you.path = [];
       }
       you.state = upd.state;
       continue;

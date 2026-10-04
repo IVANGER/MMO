@@ -35,7 +35,7 @@ const CHAR_TO_TILE = {
   ".": "grass",
   ",": "dirt",
   "~": "water",
-  "T": "tree",
+  "T": "dense_forest",
   "#": "wall",
   "H": "house",
   "R": "road",

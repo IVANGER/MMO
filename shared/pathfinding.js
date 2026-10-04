@@ -54,11 +54,12 @@ export function findPath(location, start, goal, options = {}) {
 
   // 2. BFS
   const queue = [start];
+  let head = 0;                       // индекс вместо queue.shift() — O(1) вместо O(n)
   const cameFrom = new Map();
   cameFrom.set(startKey, null);
 
-  while (queue.length > 0) {
-    const current = queue.shift();
+  while (head < queue.length) {
+    const current = queue[head++];
 
     if (current.x === goal.x && current.y === goal.y) {
       return reconstructPath(cameFrom, start, goal);
@@ -94,12 +95,13 @@ export function getReachable(location, start, radius, options = {}) {
 
   const visited = new Set();
   const queue = [{ x: start.x, y: start.y, dist: 0 }];
+  let head = 0;                       // индекс вместо queue.shift()
   visited.add(key(start.x, start.y));
 
   const result = [];
 
-  while (queue.length > 0) {
-    const current = queue.shift();
+  while (head < queue.length) {
+    const current = queue[head++];
 
     if (current.dist > 0) {
       result.push({ x: current.x, y: current.y, dist: current.dist });

@@ -2,7 +2,7 @@
 
 import { net } from "./net.js";
 import { preloadSprites } from "./render/spriteLoader.js";
-import { registerScene, switchScene, getCurrentScene } from "./scenes/sceneManager.js";
+import { registerScene, switchScene } from "./scenes/sceneManager.js";
 import { loginScene } from "./scenes/loginScene.js";
 import { characterScene } from "./scenes/characterScene.js";
 import { createCharacterScene } from "./scenes/createCharacterScene.js";
@@ -18,14 +18,10 @@ registerScene("death", deathScene);
 net.on("_open", () => {
   console.log("[main] WS connected");
 
-  const cur = getCurrentScene();
   const token = localStorage.getItem("hero_camp_token");
 
-  // Если мы в игре и есть токен — resume (восстановление)
-  if ((cur === "world" || cur === "death") && token) {
-    net.send({ type: "resume", token });
-  } else if (token && !cur) {
-    // Первый вход с токеном — пробуем resume
+  // Есть токен — resume (восстановление сессии), иначе на логин
+  if (token) {
     net.send({ type: "resume", token });
   } else {
     // Токена нет — на логин

@@ -532,6 +532,49 @@ export const TILE_SPRITES = {
 
 ---
 
+## 🔧 Правки после приёмки Дня 10 (ТЗ «Правки Дня 8-10»)
+
+### Критичные (баги)
+
+1. 🐞➡️✅ **Автоатака не запускалась** — в `onCanvasClick` **отсутствовал** блок «клик по мобу → attack»
+   (правка Дня 10 тогда не применилась, ошибка «text not found» осталась незамеченной).
+   Добавлено: проверка `findMobAtCell(tx, ty)` **до** движения, клик по земле снимает цель (`stopAttack`).
+   В `combatHandlers` добавлены логи `handleAttack received: targetId=…` и `Player X targets Y (id)`.
+   Проверено: `dispatcher` уже содержал роуты `attack` / `stopAttack`.
+2. 🐞➡️✅ **Мобы телепортировались** — интерполяция шла одной скоростью на всех.
+   Разделено: `INTERP_SPEED_PLAYER = 8`, `INTERP_SPEED_MOB = 15` (мобы обновляются реже и рывками).
+   `entityMoved` для мобов уже писал `targetX/targetY` — теперь догон успевает.
+3. 🐞➡️✅ **`rebuildPathToGoal()` вызывалась, но не была определена** — бросала ReferenceError
+   при телепорте игрока (>4 клеток). Заменено на сброс `currentPath`/`you.path`.
+
+### Дальность хода (убрана окончательно)
+
+4. ✅ Сервер `handleMoveTo` — проверка `outOfRange` удалена
+5. ✅ Клиент `onCanvasClick` — обрезка пути удалена (+ убран устаревший комментарий Дня 9)
+6. ✅ `mobAI.setPathTo` — `path.slice(0, moveRange)` убран (осталась только обрезка по лишу)
+7. ✅ `calcMoveRange` оставлена — показывается в окне персонажа, в движении не участвует
+
+### Средние
+
+8. ✅ `shared/protocol.js` — добавлены типы: `ENTITY_JOINED/LEFT/MOVED`, `ATTACK_STARTED/CLEARED`,
+   `XP_GAINED`, `CHARACTERS/CREATED/SELECTED/DELETED`, `WORLD_ENTERED`, `AUTO_ENTER_WORLD`,
+   `RESPAWNED`, `ONLINE_CHANGE`, `AFK_KICK`, `STOPPED`, `STOP_ATTACK` (без дублей ключей)
+9. ✅ `world.js` — убрана выгрузка локаций раз в 30 сек (осталась только `startAutoUnload`, 60 сек)
+10. ✅ `main.js` — resume упрощён: `token ? resume : login` (убран неиспользуемый `getCurrentScene`)
+
+### Низкие
+
+11. ✅ `client/input/mouse.js` — удалён (пустая заглушка)
+12. ✅ `spawn.js` — `visibleEntities()` удалена, убран осиротевший импорт `isVisibleEntity`
+13. ✅ `client/net.js` — исправлен отступ `_open`, reconnect использует `this._url`
+14. ✅ `shared/pathfinding.js` — `queue.shift()` → индекс `head` (O(1)) в `findPath` и `getReachable`
+15. ✅ `characterWindow.js` — `Number(you.speed ?? 2.0).toFixed(1)`
+16. ✅ `shared/tiles.js` — тайл `tree` → **`dense_forest`** («Чаща»), обновлены `forest_1`, `forest_2`, тест
+
+**Проверка после правок:** `node --test` → **70/70 pass**; живой `liveWorld` → **34/34**.
+
+---
+
 ## 🎯 План Дня 9 — Характеристики, вторичные параметры, дальность хода
 
 > **Утверждён пользователем** (баланс скорректирован). Два зайца: **(1)** ограничиваем длину ходьбы за один клик — фиксит «откидывание назад» на путях длиннее 7-8 клеток; **(2)** запускаем систему прокачки.

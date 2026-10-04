@@ -5,7 +5,7 @@ import { get, all, run } from "../db.js";
 import { newMobId } from "../ids.js";
 import { logger } from "../log.js";
 import { getMob } from "../content/mobs/index.js";
-import { createMobEntity, serializeEntity, isVisibleEntity } from "./entities.js";
+import { createMobEntity, serializeEntity } from "./entities.js";
 import { getAllSessions } from "../network/sessions.js";
 
 // ============ Спавн при загрузке локации ============
@@ -173,7 +173,3 @@ function broadcast(locationId, payload) {
 }
 
 // ============ Видимость ============
-
-export function visibleEntities(loc) {
-  return [...loc.entities.values()].filter(isVisibleEntity);
-}

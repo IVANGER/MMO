@@ -24,7 +24,7 @@ export const net = {
   _open(url) {
     this.ws = new WebSocket(url);
 
-       this.ws.onopen = () => {
+    this.ws.onopen = () => {
       this.reconnectDelay = 1000;
       this.emit("_open");
     };
@@ -47,7 +47,8 @@ export const net = {
       this.emit("_close", e);
       if (this.shouldReconnect) {
         console.log(`Reconnecting in ${this.reconnectDelay}ms...`);
-        setTimeout(() => this._open(url), this.reconnectDelay);
+        // Переподключаемся по тому же адресу, что и в connect()
+        setTimeout(() => this._open(this._url), this.reconnectDelay);
         this.reconnectDelay = Math.min(
           this.reconnectDelay * 1.5,
           this.maxReconnectDelay

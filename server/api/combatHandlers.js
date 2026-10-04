@@ -15,6 +15,7 @@ function reply(ws, obj) {
  * Если далеко — тик-цикл доведёт игрока до цели сам (updatePlayerCombat).
  */
 export function handleAttack(ws, msg) {
+  logger.debug(`handleAttack received: targetId=${msg.targetId}`);
   const session = getSession(ws);
   if (!session || !session.locationId) return;
 
@@ -35,7 +36,7 @@ export function handleAttack(ws, msg) {
   }
 
   entity.targetId = mob.id;
-  logger.debug(`Player ${entity.name} targets ${mob.name}`);
+  logger.debug(`Player ${entity.name} targets ${mob.name} (${mob.id})`);
 
   // Ответ клиенту: за кем бьём (для подсветки цели)
   reply(ws, { type: "attackStarted", targetId: mob.id, name: mob.name });

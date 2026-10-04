@@ -48,9 +48,9 @@ export const TILES = {
     walkable: false,
     color: "#1f2937",
   },
-  tree: {
-    id: "tree",
-    name: "Дерево",
+  dense_forest: {
+    id: "dense_forest",
+    name: "Чаща",
     walkable: false,
     color: "#166534",
   },

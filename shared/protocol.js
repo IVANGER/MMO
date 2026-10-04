@@ -15,10 +15,36 @@ export const MSG = {
   MOVE_TO: "moveTo",
   STOP_MOVE: "stopMove",
   CHANGE_LOCATION: "changeLocation",
+  WORLD_ENTERED: "worldEntered",
+  AUTO_ENTER_WORLD: "autoEnterWorld",
+  RESPAWNED: "respawned",
+  ONLINE_CHANGE: "onlineChange",
 
   // Бой
   ATTACK: "attack",
+  STOP_ATTACK: "stopAttack",
   USE_SKILL: "useSkill",
+  ATTACK_STARTED: "attackStarted",
+  ATTACK_CLEARED: "attackCleared",
+  XP_GAINED: "xpGained",
+
+  // Сущности
+  ENTITY_JOINED: "entityJoined",
+  ENTITY_LEFT: "entityLeft",
+  ENTITY_MOVED: "entityMoved",
+
+  // Персонаж (запросы клиента)
+  CREATE_CHARACTER_MSG: "createCharacter",
+  CHARACTERS: "characters",
+  CHARACTER_CREATED: "characterCreated",
+  CHARACTER_SELECTED: "characterSelected",
+  CHARACTER_DELETED: "characterDeleted",
+
+  // Путь
+  STOPPED: "stopped",
+
+  // Кик
+  AFK_KICK: "afkKick",
 
   // Лут
   OPEN_LOOT_BAG: "openLootBag",
