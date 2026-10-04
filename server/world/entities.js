@@ -44,6 +44,7 @@ export function createPlayerEntity(character) {
     targetId: null,        // цель автоатаки (День 10)
     nextAttackAt: 0,       // время следующего удара (мс)
     nextRepathAt: 0,       // время пересчёта пути к цели (мс)
+    itemCooldownUntil: 0,  // кулдаун зелий/расходников (мс) — День 12
   };
 }
 

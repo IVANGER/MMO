@@ -4,7 +4,7 @@ import { net } from "../net.js";
 import { switchScene, getCurrentScene } from "./sceneManager.js";
 import { renderWorld } from "../render/renderWorld.js";
 import { renderPath } from "../render/renderPath.js";
-import { renderHUD, HUD_HEIGHT } from "../render/renderHUD.js";
+import { renderHUD, HUD_HEIGHT, hotbarSlotAt } from "../render/renderHUD.js";
 import { preloadSprites } from "../render/spriteLoader.js";
 import { findPath, isCellWalkable } from "../../shared/pathfinding.js";
 
@@ -18,6 +18,8 @@ import {
   toggleInventoryWindow,
   closeInventoryWindow,
   isInventoryWindowOpen,
+  setInventoryItems,
+  getDraggingItemId,
 } from "../ui/inventory.js";
 import {
   toggleWorldMapWindow,
@@ -42,6 +44,13 @@ let worldViewport = { width: 0, height: 0 };   // только игровая о
 let currentPath = [];
 let pathInvalid = null;
 let attackTargetId = null;   // текущая цель автоатаки (День 10)
+
+// Состояние Дня 12: навыки 1-4, хотбар 5-8, инвентарь, зелья
+let skillsList = [];                        // [{id, name, icon, cooldownUntil}] в порядке слотов
+let hotbarSlots = [null, null, null, null]; // itemId в слотах хотбара
+let inventoryItems = [];                    // предметы с сервера
+let potionCooldownUntil = 0;                // общий кулдаун зелий (мс)
+let notice = null;                          // всплывающая строка над HUD {text, until}
 
 const MIN_TILE_SIZE = 16;
 const MAX_TILE_SIZE = 96;
@@ -131,6 +140,28 @@ function handleKey(key) {
     return false;
   }
 
+  // ============ 1-4 — навыки (День 12) ============
+  if (key >= "1" && key <= "4") {
+    const skill = skillsList[Number(key) - 1];
+    if (skill) {
+      net.send({ type: "useSkill", skillId: skill.id, targetId: attackTargetId });
+    } else {
+      showNotice("Слот навыка пуст");
+    }
+    return true;
+  }
+
+  // ============ 5-8 — хотбар: использование предмета (День 12) ============
+  if (key >= "5" && key <= "8") {
+    const itemId = hotbarSlots[Number(key) - 5];
+    if (itemId) {
+      net.send({ type: "useItem", itemId });
+    } else {
+      showNotice("Слот хотбара пуст — перетащи зелье (клавиша I)");
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -207,7 +238,13 @@ function createCanvas() {
   ctx = canvas.getContext("2d", { alpha: false });
 
   canvas.addEventListener("click", onCanvasClick);
-  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  canvas.addEventListener("contextmenu", onCanvasContextMenu);
+
+  // Drag & Drop: предмет из инвентаря → слот хотбара (День 12)
+  canvas.addEventListener("dragover", (e) => {
+    if (hotbarSlotFromEvent(e) >= 0) e.preventDefault();
+  });
+  canvas.addEventListener("drop", onCanvasDrop);
 
   document.getElementById("exit-btn").addEventListener("click", () => {
     if (confirm("Выйти из игры?")) {
@@ -331,13 +368,99 @@ function render() {
     height: viewport.height,
     you,
     location,
+    skills: skillsView(),   // День 12: иконки + кулдауны
+    hotbar: hotbarView(),   // День 12: иконки предметов + кулдаун зелья
   });
+
+  drawNotice(ctx);
 
   const coords = document.getElementById("coords");
   if (coords && you) coords.textContent = `(${you.x.toFixed(1)}, ${you.y.toFixed(1)})`;
 
   const zoom = document.getElementById("zoom");
   if (zoom) zoom.textContent = `×${(tileSize / 32).toFixed(1)}`;
+}
+
+// ============ HUD Дня 12: вид слотов, уведомления, хотбар ============
+
+function skillsView() {
+  return skillsList.slice(0, 4).map((s) => ({
+    icon: s.icon,
+    cooldownUntil: s.cooldownUntil ?? 0,
+  }));
+}
+
+function hotbarView() {
+  return hotbarSlots.map((itemId) => {
+    if (!itemId) return null;
+    const item = inventoryItems.find((i) => i.id === itemId);
+    return {
+      icon: item?.icon ?? "🧪",
+      name: item?.name ?? "",
+      // Общий кулдаун зелий — гасим слот, даже если предмет уже не в списке
+      cooldownUntil: potionCooldownUntil,
+    };
+  });
+}
+
+function showNotice(text, ms = 1600) {
+  notice = { text, until: Date.now() + ms };
+}
+
+function drawNotice(ctx) {
+  if (!notice) return;
+  if (Date.now() > notice.until) {
+    notice = null;
+    return;
+  }
+
+  const y = viewport.height - HUD_HEIGHT - 16;
+  ctx.font = "bold 13px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const w = ctx.measureText(notice.text).width + 20;
+  ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+  ctx.fillRect(viewport.width / 2 - w / 2, y - 11, w, 22);
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(viewport.width / 2 - w / 2 + 0.5, y - 10.5, w - 1, 21);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText(notice.text, viewport.width / 2, y);
+}
+
+// ============ Хотбар: drag & drop и ПКМ (День 12) ============
+
+function hotbarSlotFromEvent(e) {
+  if (!canvas) return -1;
+  const rect = canvas.getBoundingClientRect();
+  return hotbarSlotAt(
+    e.clientX - rect.left,
+    e.clientY - rect.top,
+    viewport.width,
+    viewport.height
+  );
+}
+
+function onCanvasDrop(e) {
+  const slot = hotbarSlotFromEvent(e);
+  if (slot < 0) return;
+  e.preventDefault();
+
+  const itemId = e.dataTransfer?.getData("text/plain") || getDraggingItemId();
+  if (!itemId) return;
+
+  net.send({ type: "setHotbarSlot", slotIndex: slot, itemId });
+}
+
+function onCanvasContextMenu(e) {
+  e.preventDefault();
+  const slot = hotbarSlotFromEvent(e);
+  if (slot < 0 || !hotbarSlots[slot]) return;
+
+  net.send({ type: "clearHotbarSlot", slotIndex: slot });
+  showNotice("Слот хотбара очищен");
 }
 
 // ============ Клик ============
@@ -547,6 +670,11 @@ requestAnimationFrame(animate);
 net.on("worldEntered", (msg) => {
   applyWorldData(msg);
 
+  // День 12: навыки, инвентарь и хотбар запрашиваем при каждом входе в мир
+  net.send({ type: "getSkills" });
+  net.send({ type: "getInventory" });
+  net.send({ type: "getHotbar" });
+
   if (msg.dead) {
     // Игрок мёртв — переключаемся на death scene
     switchScene("death", { killedBy: msg.killedBy });
@@ -742,6 +870,68 @@ net.on("xpGained", (msg) => {
     toggleCharacterWindow(you);
   }
 
+  render();
+});
+
+// ============ Инвентарь, зелья, хотбар (День 12) ============
+
+net.on("inventory", (msg) => {
+  inventoryItems = Array.isArray(msg.items) ? msg.items : [];
+  setInventoryItems(inventoryItems);   // обновить окно, если оно открыто
+  render();
+});
+
+net.on("itemUsed", (msg) => {
+  if (you) {
+    you.hp = msg.hp;
+    you.maxHp = msg.maxHp;
+  }
+  potionCooldownUntil = msg.cooldownUntil ?? 0;
+  if (msg.healed > 0) showNotice(`+${msg.healed} HP`);
+  render();
+});
+
+net.on("itemCooldown", (msg) => {
+  showNotice(`Зелье перезаряжается: ${msg.left} с`);
+  render();
+});
+
+net.on("hotbar", (msg) => {
+  const slots = Array.isArray(msg.slots) ? msg.slots : [];
+  hotbarSlots = [null, null, null, null];
+  for (const s of slots) {
+    if (s.index >= 0 && s.index < 4) hotbarSlots[s.index] = s.itemId;
+  }
+  render();
+});
+
+net.on("hotbarUpdate", (msg) => {
+  if (msg.index >= 0 && msg.index < 4) hotbarSlots[msg.index] = msg.itemId;
+  render();
+});
+
+// ============ Навыки (День 12) ============
+
+net.on("skills", (msg) => {
+  skillsList = Array.isArray(msg.skills) ? msg.skills : [];
+  render();
+});
+
+net.on("skillUsed", (msg) => {
+  if (you) you.mp = msg.mp;
+  const s = skillsList.find((sk) => sk.id === msg.skillId);
+  if (s) s.cooldownUntil = msg.cooldownUntil;
+  render();
+});
+
+net.on("skillCooldown", (msg) => {
+  showNotice(`Навык перезаряжается: ${msg.left} с`);
+  render();
+});
+
+// Ошибки сервера (нет цели, не хватает маны, предмет не найден...)
+net.on("error", (msg) => {
+  if (msg.message) showNotice(msg.message);
   render();
 });
 

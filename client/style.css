@@ -816,6 +816,45 @@ body {
   border-radius: 6px;
 }
 
+/* ---- Предметы в рюкзаке (День 12): иконка, счётчик, drag&drop ---- */
+
+.gw-slot-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.gw-slot-item:hover {
+  border-color: #60a5fa;
+  background: #111c33;
+}
+
+.gw-slot-item:active { cursor: grabbing; }
+
+.gw-slot-item.gw-dragging {
+  opacity: 0.45;
+  border-color: #fbbf24;
+}
+
+.gw-item-ico {
+  font-size: 20px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.gw-item-count {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font: 700 10px ui-monospace, monospace;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
+  pointer-events: none;
+}
+
 .gw-inv-foot {
   margin-top: 14px;
   font-size: 12px;

@@ -159,19 +159,22 @@ function drawEntity(ctx, e, tileSize, isYou = false) {
     const w = tileSize * scale;
     const h = tileSize * 1.5 * scale;
     ctx.drawImage(sprite, cx - w / 2, cy + r * 0.7 - h, w, h);
+  } else if (e.type === "player") {
+    // День 12: процедурная модель игрока (не смайлик)
+    drawPlayerModel(ctx, cx, cy, r, e, isYou);
+  } else if (e.type === "mob") {
+    // День 12: модель моба по mobType (гоблин, волк, орк)
+    drawMobModel(ctx, cx, cy, r, e);
   } else {
-    // Тело
+    // Прочее (NPC и т.п.) — запасной вариант: цветной кружок с иконкой
     ctx.fillStyle = e.color ?? "#60a5fa";
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
-
-    // Обводка
-    ctx.strokeStyle = isYou ? "#fbbf24" : "rgba(0, 0, 0, 0.6)";
-    ctx.lineWidth = isYou ? 3 : 2;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Иконка класса / моба
     if (tileSize >= 24) {
       ctx.font = `${Math.floor(r * 1.2)}px sans-serif`;
       ctx.textAlign = "center";
@@ -205,6 +208,294 @@ function drawEntity(ctx, e, tileSize, isYou = false) {
     const color = isYou ? "#fbbf24" : e.type === "mob" ? "#cbd5e1" : "#e2e8f0";
     drawName(ctx, e.name, cx, cy - r - 4, color, 11);
   }
+}
+
+// ============ Модельки (День 12): процедурные фигурки вместо смайликов ============
+
+// Скруглённый прямоугольник (запасной вариант вместо ctx.roundRect)
+function rr(ctx, x, y, w, h, rad) {
+  const r = Math.max(0, Math.min(rad, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function outline(ctx) {
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+// Игрок: ноги, корпус (цвет класса), руки, голова, волосы, меч у воина
+function drawPlayerModel(ctx, cx, cy, r, e, isYou) {
+  const footY = cy + r * 0.65;
+  const h = r * 2.2;
+  const w = r * 1.0;
+  const top = footY - h;
+
+  // Золотое кольцо под ногами — это Я
+  if (isYou) {
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, footY, r * 0.85, r * 0.32, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Ноги
+  ctx.fillStyle = "#1f2937";
+  ctx.fillRect(cx - w * 0.4, footY - h * 0.3, w * 0.3, h * 0.3);
+  ctx.fillRect(cx + w * 0.1, footY - h * 0.3, w * 0.3, h * 0.3);
+
+  // Руки
+  ctx.fillStyle = e.color ?? "#60a5fa";
+  rr(ctx, cx - w * 0.66, top + h * 0.36, w * 0.2, h * 0.3, w * 0.08);
+  ctx.fill(); outline(ctx);
+  rr(ctx, cx + w * 0.46, top + h * 0.36, w * 0.2, h * 0.3, w * 0.08);
+  ctx.fill(); outline(ctx);
+
+  // Корпус (броня/рубаха цвета класса)
+  ctx.fillStyle = e.color ?? "#60a5fa";
+  rr(ctx, cx - w / 2, top + h * 0.32, w, h * 0.4, w * 0.18);
+  ctx.fill(); outline(ctx);
+
+  // Поясок
+  ctx.fillStyle = "#374151";
+  ctx.fillRect(cx - w / 2, top + h * 0.66, w, h * 0.06);
+
+  // Голова
+  ctx.fillStyle = "#f2c79b";
+  ctx.beginPath();
+  ctx.arc(cx, top + h * 0.17, r * 0.4, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  // Волосы (дуга сверху)
+  ctx.fillStyle = "#4b5563";
+  ctx.beginPath();
+  ctx.arc(cx, top + h * 0.17, r * 0.4, Math.PI * 1.05, Math.PI * 1.95);
+  ctx.closePath();
+  ctx.fill();
+
+  // Глаза
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(cx - r * 0.16, top + h * 0.18, r * 0.07, r * 0.07);
+  ctx.fillRect(cx + r * 0.09, top + h * 0.18, r * 0.07, r * 0.07);
+
+  // Меч (воин) — с правой стороны
+  if (e.class === "warrior") {
+    ctx.strokeStyle = "#d1d5db";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + w * 0.7, top + h * 0.72);
+    ctx.lineTo(cx + w * 0.95, top + h * 0.3);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#92400e";
+    ctx.beginPath();
+    ctx.moveTo(cx + w * 0.62, top + h * 0.66);
+    ctx.lineTo(cx + w * 0.78, top + h * 0.78);
+    ctx.stroke();
+  }
+}
+
+// Моб: модель по типу, запасной вариант — кружок с иконкой
+function drawMobModel(ctx, cx, cy, r, e) {
+  switch (e.mobType) {
+    case "wolf":
+      drawWolfModel(ctx, cx, cy, r);
+      return;
+    case "goblin":
+      drawGoblinModel(ctx, cx, cy, r);
+      return;
+    case "orc":
+      drawOrcModel(ctx, cx, cy, r);
+      return;
+    default: {
+      ctx.fillStyle = e.color ?? "#84cc16";
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      outline(ctx);
+      ctx.font = `${Math.floor(r * 1.2)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(e.classIcon ?? "🐾", cx, cy + 1);
+    }
+  }
+}
+
+// Гоблин: низкая зелёная фигурка с острыми ушами и красными глазами
+function drawGoblinModel(ctx, cx, cy, r) {
+  const footY = cy + r * 0.6;
+  const h = r * 1.9;
+  const w = r * 0.85;
+  const top = footY - h;
+
+  // Ноги
+  ctx.fillStyle = "#3f6212";
+  ctx.fillRect(cx - w * 0.36, footY - h * 0.3, w * 0.28, h * 0.3);
+  ctx.fillRect(cx + w * 0.08, footY - h * 0.3, w * 0.28, h * 0.3);
+
+  // Руки (длинные, вниз)
+  ctx.fillStyle = "#65a30d";
+  rr(ctx, cx - w * 0.62, top + h * 0.4, w * 0.18, h * 0.32, w * 0.08);
+  ctx.fill(); outline(ctx);
+  rr(ctx, cx + w * 0.44, top + h * 0.4, w * 0.18, h * 0.32, w * 0.08);
+  ctx.fill(); outline(ctx);
+
+  // Корпус
+  ctx.fillStyle = "#65a30d";
+  rr(ctx, cx - w / 2, top + h * 0.36, w, h * 0.36, w * 0.18);
+  ctx.fill(); outline(ctx);
+
+  // Голова
+  ctx.fillStyle = "#84cc16";
+  ctx.beginPath();
+  ctx.arc(cx, top + h * 0.2, r * 0.38, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  // Уши в стороны
+  ctx.fillStyle = "#84cc16";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.34, top + h * 0.16);
+  ctx.lineTo(cx - r * 0.75, top + h * 0.06);
+  ctx.lineTo(cx - r * 0.3, top + h * 0.26);
+  ctx.closePath();
+  ctx.fill(); outline(ctx);
+  ctx.beginPath();
+  ctx.moveTo(cx + r * 0.34, top + h * 0.16);
+  ctx.lineTo(cx + r * 0.75, top + h * 0.06);
+  ctx.lineTo(cx + r * 0.3, top + h * 0.26);
+  ctx.closePath();
+  ctx.fill(); outline(ctx);
+
+  // Красные глаза
+  ctx.fillStyle = "#dc2626";
+  ctx.fillRect(cx - r * 0.16, top + h * 0.18, r * 0.09, r * 0.07);
+  ctx.fillRect(cx + r * 0.07, top + h * 0.18, r * 0.09, r * 0.07);
+}
+
+// Волк: quadruped в профиль — тело, голова с ухом, хвот, четыре лапы
+function drawWolfModel(ctx, cx, cy, r) {
+  const footY = cy + r * 0.6;
+  const bodyY = footY - r * 0.85;
+
+  // Лапы
+  ctx.fillStyle = "#6b7280";
+  const legW = r * 0.16;
+  const legTop = bodyY + r * 0.15;
+  for (const lx of [-0.55, -0.2, 0.3, 0.6]) {
+    ctx.fillRect(cx + lx * r, legTop, legW, footY - legTop);
+  }
+
+  // Хвост
+  ctx.strokeStyle = "#9ca3af";
+  ctx.lineWidth = r * 0.18;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.85, bodyY - r * 0.1);
+  ctx.lineTo(cx - r * 1.25, bodyY - r * 0.5);
+  ctx.stroke();
+
+  // Тело
+  ctx.fillStyle = "#9ca3af";
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyY, r * 0.95, r * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  // Голова
+  const hx = cx + r * 0.95;
+  const hy = bodyY - r * 0.25;
+  ctx.fillStyle = "#a8b0bb";
+  ctx.beginPath();
+  ctx.arc(hx, hy, r * 0.36, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  // Ухо
+  ctx.fillStyle = "#9ca3af";
+  ctx.beginPath();
+  ctx.moveTo(hx - r * 0.2, hy - r * 0.25);
+  ctx.lineTo(hx - r * 0.02, hy - r * 0.62);
+  ctx.lineTo(hx + r * 0.14, hy - r * 0.22);
+  ctx.closePath();
+  ctx.fill(); outline(ctx);
+
+  // Морда + глаз
+  ctx.fillStyle = "#cbd5e1";
+  ctx.beginPath();
+  ctx.arc(hx + r * 0.28, hy + r * 0.12, r * 0.16, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  ctx.fillStyle = "#111827";
+  ctx.beginPath();
+  ctx.arc(hx + r * 0.08, hy - r * 0.05, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Орк: широкая тёмно-зелёная фигура с клыками и наплечниками
+function drawOrcModel(ctx, cx, cy, r) {
+  const footY = cy + r * 0.7;
+  const h = r * 2.5;
+  const w = r * 1.3;
+  const top = footY - h;
+
+  // Ноги
+  ctx.fillStyle = "#292524";
+  ctx.fillRect(cx - w * 0.36, footY - h * 0.3, w * 0.3, h * 0.3);
+  ctx.fillRect(cx + w * 0.06, footY - h * 0.3, w * 0.3, h * 0.3);
+
+  // Руки (толстые)
+  ctx.fillStyle = "#4d7c0f";
+  rr(ctx, cx - w * 0.7, top + h * 0.34, w * 0.24, h * 0.36, w * 0.1);
+  ctx.fill(); outline(ctx);
+  rr(ctx, cx + w * 0.46, top + h * 0.34, w * 0.24, h * 0.36, w * 0.1);
+  ctx.fill(); outline(ctx);
+
+  // Корпус
+  ctx.fillStyle = "#4d7c0f";
+  rr(ctx, cx - w / 2, top + h * 0.3, w, h * 0.4, w * 0.2);
+  ctx.fill(); outline(ctx);
+
+  // Наплечники
+  ctx.fillStyle = "#57534e";
+  rr(ctx, cx - w * 0.58, top + h * 0.3, w * 0.3, h * 0.1, w * 0.06);
+  ctx.fill(); outline(ctx);
+  rr(ctx, cx + w * 0.28, top + h * 0.3, w * 0.3, h * 0.1, w * 0.06);
+  ctx.fill(); outline(ctx);
+
+  // Пояс
+  ctx.fillStyle = "#78350f";
+  ctx.fillRect(cx - w / 2, top + h * 0.66, w, h * 0.06);
+
+  // Голова
+  ctx.fillStyle = "#4d7c0f";
+  ctx.beginPath();
+  ctx.arc(cx, top + h * 0.16, r * 0.44, 0, Math.PI * 2);
+  ctx.fill(); outline(ctx);
+
+  // Клыки вверх
+  ctx.fillStyle = "#f8fafc";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.16, top + h * 0.24);
+  ctx.lineTo(cx - r * 0.1, top + h * 0.16);
+  ctx.lineTo(cx - r * 0.04, top + h * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx + r * 0.16, top + h * 0.24);
+  ctx.lineTo(cx + r * 0.1, top + h * 0.16);
+  ctx.lineTo(cx + r * 0.04, top + h * 0.24);
+  ctx.closePath();
+  ctx.fill();
+
+  // Глаза (злые — косые)
+  ctx.fillStyle = "#fef08a";
+  ctx.fillRect(cx - r * 0.2, top + h * 0.13, r * 0.12, r * 0.06);
+  ctx.fillRect(cx + r * 0.08, top + h * 0.13, r * 0.12, r * 0.06);
 }
 
 function drawName(ctx, name, cx, baselineY, color, size) {

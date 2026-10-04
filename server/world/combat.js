@@ -1,6 +1,7 @@
 // Бой: автоатака игрока по мобам, кулдауны, урон (День 10)
 // Игрок кликает по мобу — сервер бьёт автоматически, пока моб жив и
-// игрок остаётся в радиусе атаки (ATTACK_RANGE клеток).
+// игрок остаётся в радиусе атаки. День 12: радиус — ТОЛЬКО соседние
+// по стороне клетки (inAttackRange), диагональ не считается.
 // Урон мобов по игрокам — День 11.
 
 import { findPath, isCellWalkable } from "./pathfinding.js";
@@ -12,6 +13,16 @@ import { logger } from "../log.js";
 import * as entityStore from "./entityStore.js";
 
 export const ATTACK_RANGE = 1.2;    // радиус атаки в клетках (вплотную)
+
+// Радиус атаки: только соседние клетки (4 стороны) — День 12
+// Манхэттен НЕ подходит: (10,10)↔(9,9) имеет манхэттен 2, но это
+// диагональ, а бить можно только «по стороне»: (1,0) или (0,1).
+export function inAttackRange(a, b) {
+  const dx = Math.abs(Math.round(a.x) - Math.round(b.x));
+  const dy = Math.abs(Math.round(a.y) - Math.round(b.y));
+  // Сосед по стороне: (1, 0) или (0, 1). Не диагональ, не та же клетка.
+  return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+}
 const BASE_COOLDOWN_MS = 1000;      // базовый кулдаун между ударами
 const COOLDOWN_MIN_MS = 400;        // быстрее нельзя даже с большой скоростью атаки
 const REPATH_MS = 500;              // пересчёт пути к цели не чаще 2 раз в секунду
@@ -22,6 +33,30 @@ const rng = createRng(0xA77AC4);
 export function attackCooldownMs(entity) {
   const speed = entity?.attackSpeed ?? 1.0;
   return Math.max(COOLDOWN_MIN_MS, Math.round(BASE_COOLDOWN_MS / speed));
+}
+
+// ============ Баффы навыков (День 12) ============
+// entity.buffs = [{ stat: "atk" | "defense", mult: 1.3, until: <мс> }]
+// Применяются лениво при расчёте удара — отдельный тик не нужен.
+
+export function addBuff(entity, stat, mult, durationMs, now = Date.now()) {
+  if (!Array.isArray(entity.buffs)) entity.buffs = [];
+  entity.buffs = entity.buffs.filter((b) => b.stat !== stat);   // один бафф на стат
+  entity.buffs.push({ stat, mult, until: now + durationMs });
+}
+
+export function buffedStat(entity, stat, base, now = Date.now()) {
+  const list = entity?.buffs;
+  if (!list || list.length === 0) return base;
+
+  let mult = 1;
+  let any = false;
+  for (const b of list) {
+    if (b.stat !== stat || b.until <= now) continue;
+    mult *= b.mult;
+    any = true;
+  }
+  return any ? base * mult : base;
 }
 
 /**
@@ -45,8 +80,8 @@ export function updatePlayerCombat(loc, now = Date.now()) {
       continue;
     }
 
-    // Вне радиуса — подходим к цели
-    if (cellDistance(entity, mob) > ATTACK_RANGE) {
+    // Вне радиуса (не соседние по стороне клетки) — подходим к цели
+    if (!inAttackRange(entity, mob)) {
       approachTarget(loc, entity, mob, now);
       changed.push(entity);
       continue;
@@ -69,7 +104,7 @@ export function updatePlayerCombat(loc, now = Date.now()) {
  * Автоатака мобов по игрокам (День 11).
  * Мобы бьют, если:
  *  - моб агрессивный (aggro === true) ИЛИ provoked
- *  - игрок в радиусе атаки моба (ATTACK_RANGE)
+ *  - цель — соседняя по стороне клетка (inAttackRange, День 12)
  *  - кулдаун моба прошёл
  *
  * @returns {object[]} изменившиеся сущности (для broadcast)
@@ -92,8 +127,8 @@ export function updateMobCombat(loc, now = Date.now()) {
       continue;
     }
 
-    // Вне радиуса атаки — не бьём (моб подойдёт сам через mobAI)
-    if (cellDistance(mob, target) > ATTACK_RANGE) continue;
+    // Не соседние по стороне клетки — не бьём (моб подойдёт сам через mobAI)
+    if (!inAttackRange(mob, target)) continue;
 
     // Кулдаун не прошёл — ждём
     if (now < (mob.nextAttackAt ?? 0)) continue;
@@ -109,9 +144,11 @@ export function updateMobCombat(loc, now = Date.now()) {
 
 function strikeMob(loc, mob, player, now) {
   mob.nextAttackAt = now + attackCooldownMs(mob);
+  logger.debug(`Strike: dist=${cellDistance(mob, player)}`);
 
   const crit = chance(rng, mob.critChance ?? 0.03);
-  const raw = (mob.atk ?? 1) - (player.defense ?? 0);
+  const raw =
+    (mob.atk ?? 1) - buffedStat(player, "defense", player.defense ?? 0, now);
   const damage = Math.max(1, Math.floor(raw * (crit ? 2 : 1)));
 
   player.hp = Math.max(0, player.hp - damage);
@@ -207,9 +244,11 @@ function strike(loc, attacker, mob, now) {
   attacker.nextAttackAt = now + attackCooldownMs(attacker);
   mob.provoked = true;   // пассивный моб после удара становится враждебным
   mob.aggro = true;
+  logger.debug(`Strike: dist=${cellDistance(attacker, mob)}`);
 
   const crit = chance(rng, attacker.critChance ?? 0.05);
-  const raw = (attacker.atk ?? 1) - (mob.defense ?? 0);
+  const raw =
+    buffedStat(attacker, "atk", attacker.atk ?? 1, now) - (mob.defense ?? 0);
   const damage = Math.max(1, Math.floor(raw * (crit ? 2 : 1)));
 
   mob.hp = Math.max(0, mob.hp - damage);
@@ -230,7 +269,7 @@ function strike(loc, attacker, mob, now) {
   if (mob.hp <= 0) handleKill(loc, attacker, mob);
 }
 
-function handleKill(loc, attacker, mob) {
+export function handleKill(loc, attacker, mob) {
   killMob(loc, mob, attacker.id);
 
   // Опыт за убийство — по формуле Дня 9 (calcKillXp)
@@ -323,7 +362,7 @@ function cellDistance(a, b) {
 
 // ============ Рассылка ============
 
-function broadcast(locationId, payload) {
+export function broadcast(locationId, payload) {
   const data = JSON.stringify(payload);
   for (const s of getAllSessions()) {
     if (s.locationId !== locationId) continue;

@@ -56,6 +56,10 @@ function ensureColumns() {
     db.exec(`ALTER TABLE characters ADD COLUMN attr_points INTEGER DEFAULT 0`);
     logger.info("Migration: characters.attr_points added");
   }
+  if (!cols.includes("starter_pack_given")) {
+    db.exec(`ALTER TABLE characters ADD COLUMN starter_pack_given INTEGER DEFAULT 0`);
+    logger.info("Migration: characters.starter_pack_given added");
+  }
 }
 
 // Backfill: персонажи без attrs получают характеристики класса + рост по уровню,

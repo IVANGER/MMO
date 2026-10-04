@@ -20,6 +20,14 @@ import {
   handleRespawn,
 } from "../api/worldHandlers.js";
 import { handleAttack, handleStopAttack } from "../api/combatHandlers.js";
+import {
+  handleGetInventory,
+  handleUseItem,
+  handleGetHotbar,
+  handleSetHotbarSlot,
+  handleClearHotbarSlot,
+} from "../api/inventoryHandlers.js";
+import { handleGetSkills, handleUseSkill } from "../api/skillHandlers.js";
 import { getSession, updateActivity } from "./sessions.js";
 
 const PUBLIC = new Set(["register", "login", "resume", "pong", "hello"]);
@@ -42,6 +50,17 @@ const ROUTES = {
 
   attack: handleAttack,
   stopAttack: handleStopAttack,
+
+  // Навыки 1-4 (День 12)
+  getSkills: handleGetSkills,
+  useSkill: handleUseSkill,
+
+  // Инвентарь и хотбар (День 12)
+  getInventory: handleGetInventory,
+  useItem: handleUseItem,
+  getHotbar: handleGetHotbar,
+  setHotbarSlot: handleSetHotbarSlot,
+  clearHotbarSlot: handleClearHotbarSlot,
 };
 
 export function dispatch(ws, msg) {

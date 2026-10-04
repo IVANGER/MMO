@@ -1,5 +1,6 @@
 // HUD: полоса внизу экрана — HP, мана, опыт, 4 слота навыков, хотбар
 // Полоска опыта добавлена в День 10 (под полосы здоровья и маны)
+// День 12: иконки навыков/предметов + кулдаун-оверлей (затемнение + секунды)
 
 export const HUD_HEIGHT = 96;
 
@@ -126,32 +127,72 @@ function drawBar(ctx, x, y, w, h, value, max, { icon, color, bg, small = false }
 
 // ============ Слот навыка / хотбара ============
 
-function drawSlot(ctx, x, y, key, skill, drawConnector) {
+function drawSlot(ctx, x, y, key, entry, drawConnector) {
   if (drawConnector) {
     ctx.fillStyle = "rgba(100, 116, 139, 0.35)";
     ctx.fillRect(x + SLOT_SIZE, y + SLOT_SIZE / 2 - 1, SLOT_GAP, 2);
   }
 
   // Корпус слота
-  ctx.fillStyle = skill ? "#1e293b" : "#0f172a";
+  ctx.fillStyle = entry ? "#1e293b" : "#0f172a";
   ctx.fillRect(x, y, SLOT_SIZE, SLOT_SIZE);
 
-  ctx.strokeStyle = skill ? "#60a5fa" : "#334155";
-  ctx.lineWidth = skill ? 2 : 1;
+  ctx.strokeStyle = entry ? "#60a5fa" : "#334155";
+  ctx.lineWidth = entry ? 2 : 1;
   ctx.strokeRect(x + 0.5, y + 0.5, SLOT_SIZE - 1, SLOT_SIZE - 1);
 
-  // Иконка навыка (пока пусто)
-  if (skill?.icon) {
+  // Иконка навыка / предмета
+  if (entry?.icon) {
     ctx.font = "22px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(skill.icon, x + SLOT_SIZE / 2, y + SLOT_SIZE / 2);
+    ctx.fillText(entry.icon, x + SLOT_SIZE / 2, y + SLOT_SIZE / 2);
   }
 
-  // Номер клавиши
+  // Кулдаун-оверлей (День 12): полупрозрачное затемнение + секунды
+  const leftMs = (entry?.cooldownUntil ?? 0) - Date.now();
+  if (leftMs > 0) {
+    ctx.fillStyle = "rgba(2, 6, 23, 0.78)";
+    ctx.fillRect(x, y, SLOT_SIZE, SLOT_SIZE);
+
+    ctx.font = "bold 14px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fillText(
+      String(Math.ceil(leftMs / 1000)),
+      x + SLOT_SIZE / 2,
+      y + SLOT_SIZE / 2 + 1
+    );
+  }
+
+  // Номер клавиши (поверх оверлея)
   ctx.font = "bold 10px ui-monospace, monospace";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#94a3b8";
   ctx.fillText(String(key), x + 4, y + 3);
+}
+
+// ============ Геометрия хотбара (День 12) ============
+// Точная копия расчётов renderHUD — нужна для drop/contextmenu на канвасе.
+
+export function hotbarSlotAt(mx, my, width, height) {
+  const top = Math.round(height - HUD_HEIGHT);
+  const slotY = Math.round(top + (HUD_HEIGHT - SLOT_SIZE) / 2);
+  if (my < slotY || my > slotY + SLOT_SIZE) return -1;
+
+  const skillsW = SKILL_SLOTS * SLOT_SIZE + (SKILL_SLOTS - 1) * SLOT_GAP;
+  const sx0 = Math.round(width / 2 - skillsW / 2);
+  const hotW = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_GAP;
+  const hx0 = Math.round(width - PAD - hotW);
+
+  // Как в renderHUD: хотбар рисуется только если не наезжает на навыки
+  if (hx0 <= sx0 + skillsW + 40) return -1;
+
+  for (let i = 0; i < HOTBAR_SLOTS; i++) {
+    const hx = hx0 + i * (SLOT_SIZE + SLOT_GAP);
+    if (mx >= hx && mx <= hx + SLOT_SIZE) return i;
+  }
+  return -1;
 }

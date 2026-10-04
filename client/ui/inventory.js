@@ -1,7 +1,10 @@
-// Окно инвентаря (клавиша I) — День 10 / День 11
+// Окно инвентаря (клавиша I) — День 10 / День 11 / День 12
 // Слева — слоты экипировки персонажа (paper-doll), ниже — сетка рюкзака 6×8 = 48 слотов.
 // Справа колонкой на всю высоту — слоты артефактов 1-5.
-// Пока все слоты пустые: предметы появятся в Дне 15.
+// День 12: предметы приходят с сервера (getInventory), складываются стопками
+// по типу и перетаскиваются (drag & drop) в хотбар — слоты 5-8.
+
+import { net } from "../net.js";
 
 export const INVENTORY_COLS = 6;
 export const INVENTORY_ROWS = 8;
@@ -13,8 +16,23 @@ export const ARTIFACT_SLOTS = 5;
 let el = null;
 let open = false;
 
+// Предметы с сервера + что тащим мышью (fallback для drop на канвас)
+let items = [];
+let draggingItemId = null;
+
 export function isInventoryWindowOpen() {
   return open;
+}
+
+/** Обновить список предметов (вызывается из worldScene по сообщению inventory) */
+export function setInventoryItems(list) {
+  items = Array.isArray(list) ? list : [];
+  if (open && el) el.innerHTML = renderInventoryHtml();
+}
+
+/** itemId, который сейчас перетаскивается (для drop на канвас хотбара) */
+export function getDraggingItemId() {
+  return draggingItemId;
 }
 
 export function toggleInventoryWindow() {
@@ -34,12 +52,38 @@ function showInventoryWindow() {
   el.innerHTML = renderInventoryHtml();
   document.getElementById("app").appendChild(el);
   open = true;
+
+  // Всегда просим актуальный состав (День 12)
+  net.send({ type: "getInventory" });
+
+  // Drag & Drop: тянем предмет → сбрасываем на слот хотбара в канвасе
+  el.addEventListener("dragstart", (ev) => {
+    const cell = ev.target.closest?.("[data-item]");
+    if (!cell) return;
+    draggingItemId = cell.dataset.item;
+    ev.dataTransfer.setData("text/plain", draggingItemId);
+    ev.dataTransfer.effectAllowed = "copy";
+    cell.classList.add("gw-dragging");
+  });
+
+  el.addEventListener("dragend", (ev) => {
+    draggingItemId = null;
+    ev.target.closest?.(".gw-dragging")?.classList.remove("gw-dragging");
+  });
+
+  // Двойной клик — сразу использовать (зелье)
+  el.addEventListener("dblclick", (ev) => {
+    const cell = ev.target.closest?.("[data-item]");
+    if (!cell) return;
+    net.send({ type: "useItem", itemId: cell.dataset.item });
+  });
 }
 
 export function closeInventoryWindow() {
   if (el) el.remove();
   el = null;
   open = false;
+  draggingItemId = null;
 }
 
 // ============ Отрисовка ============
@@ -97,11 +141,53 @@ function renderArtifactsHtml() {
     </div>`;
 }
 
-function renderInventoryHtml() {
-  const slots = [];
-  for (let i = 0; i < INVENTORY_SLOTS; i++) {
-    slots.push(`<div class="gw-slot" data-slot="${i}"></div>`);
+// Стопки по типу: 5 зелий → одна ячейка «🧪 ×5», в ячейке — id первого предмета
+function groupItems(list) {
+  const out = [];
+  const idx = new Map();
+
+  for (const it of list) {
+    if (!it || it.equipped) continue;
+    if (idx.has(it.type)) {
+      out[idx.get(it.type)].ids.push(it.id);
+    } else {
+      idx.set(it.type, out.length);
+      out.push({ ...it, ids: [it.id] });
+    }
   }
+  return out;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>\"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+function itemCellHtml(g) {
+  const count = g.ids.length > 1 ? `<span class="gw-item-count">${g.ids.length}</span>` : "";
+  return `
+    <div class="gw-slot gw-slot-item" data-item="${g.ids[0]}" draggable="true"
+         title="${escapeHtml(g.name)} · ЛКМ×2 — использовать, тяни в хотбар (5-8)">
+      <span class="gw-item-ico">${g.icon}</span>
+      ${count}
+    </div>`;
+}
+
+function renderInventoryHtml() {
+  const groups = groupItems(items);
+  const slots = [];
+
+  for (let i = 0; i < INVENTORY_SLOTS; i++) {
+    const g = groups[i];
+    slots.push(
+      g
+        ? itemCellHtml(g)
+        : `<div class="gw-slot" data-slot="${i}"></div>`
+    );
+  }
+
+  const total = groups.reduce((n, g) => n + g.ids.length, 0);
 
   return `
     <div class="gw-window-head">
@@ -121,7 +207,8 @@ function renderInventoryHtml() {
     </div>
 
     <div class="gw-inv-foot">
-      Экипировка 8 слотов · Артефакты ${ARTIFACT_SLOTS} · Рюкзак ${INVENTORY_COLS}×${INVENTORY_ROWS} (${INVENTORY_SLOTS}) · пусто
+      Экипировка 8 · Артефакты ${ARTIFACT_SLOTS} · Рюкзак ${INVENTORY_COLS}×${INVENTORY_ROWS} ·
+      предметов: ${total} · ${total > 0 ? "перетащи в хотбар (5-8), ПКМ по слоту — очистить" : "пусто"}
     </div>
   `;
 }

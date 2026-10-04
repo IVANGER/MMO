@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS characters (
   created_at      INTEGER NOT NULL,
   last_online     INTEGER,
 
+  starter_pack_given INTEGER DEFAULT 0,  -- стартовый набор выдан (День 12)
+
   UNIQUE(user_id, slot)
 );
 
@@ -109,6 +111,17 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE INDEX IF NOT EXISTS idx_items_owner ON items(owner_id);
 CREATE INDEX IF NOT EXISTS idx_items_equipped ON items(owner_id, equipped);
+
+-- ============================================================
+-- ХОТБАР (слоты 5-8) — День 12
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS hotbar (
+  character_id  TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+  slot_index    INTEGER NOT NULL,   -- 0-3 (4 слота)
+  item_id       TEXT REFERENCES items(id) ON DELETE SET NULL,
+  PRIMARY KEY (character_id, slot_index)
+);
 
 -- ============================================================
 -- ЖИВЫЕ СУЩНОСТИ В МИРЕ (тела игроков)

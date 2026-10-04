@@ -6,6 +6,7 @@ import { findPath, isCellWalkable } from "./pathfinding.js";
 import { respawnMob } from "./spawn.js";
 import { createRng, randomInt } from "../rng.js";
 import { logger } from "../log.js";
+import { inAttackRange } from "./combat.js";   // День 12: стоять можно только в соседней по стороне клетке
 
 const REPATH_MS = 500;          // не чаще 2 раз в секунду
 const WANDER_MIN_MS = 1500;
@@ -51,8 +52,8 @@ function think(loc, mob, players, now) {
   // Кого видит моб?
   const target = findTarget(mob, players);
 
-  // Атака вплотную (урон — День 10)
-  if (target && cellDistance(mob, target) <= mob.attackRange) {
+  // Атака вплотную: только соседние по стороне клетки (День 12 — inAttackRange)
+  if (target && inAttackRange(mob, target)) {
     setAggro(mob, true, target);
     mob.path = [];
     mob.state = "idle";

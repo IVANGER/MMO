@@ -23,7 +23,12 @@ export const MSG = {
   // Бой
   ATTACK: "attack",
   STOP_ATTACK: "stopAttack",
+
+  // Навыки — слоты 1-4 (День 12)
   USE_SKILL: "useSkill",
+  GET_SKILLS: "getSkills",
+  SKILL_USED: "skillUsed",
+  SKILL_COOLDOWN: "skillCooldown",
   ATTACK_STARTED: "attackStarted",
   ATTACK_CLEARED: "attackCleared",
   XP_GAINED: "xpGained",
@@ -56,11 +61,15 @@ export const MSG = {
   CLOSE_LOOT_BAG: "closeLootBag",
   DISCARD_LOOT_BAG: "discardLootBag",
 
-  // Инвентарь
+  // Инвентарь и хотбар (День 12)
   EQUIP_ITEM: "equipItem",
   UNEQUIP_ITEM: "unequipItem",
   USE_ITEM: "useItem",
   DROP_ITEM: "dropItem",
+  GET_INVENTORY: "getInventory",
+  GET_HOTBAR: "getHotbar",
+  SET_HOTBAR_SLOT: "setHotbarSlot",
+  CLEAR_HOTBAR_SLOT: "clearHotbarSlot",
 
   // Города
   BUY_ITEM: "buyItem",
@@ -88,6 +97,11 @@ export const MSG = {
   LOOT_ITEM_TAKEN: "lootItemTaken",
   GOLD_GAINED: "goldGained",
   INVENTORY: "inventory",
+  ITEM_USED: "itemUsed",
+  ITEM_COOLDOWN: "itemCooldown",
+  SKILLS: "skills",
+  HOTBAR: "hotbar",
+  HOTBAR_UPDATE: "hotbarUpdate",
   CHAT: "chat",
 };
 

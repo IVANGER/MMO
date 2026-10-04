@@ -5,6 +5,7 @@ import { getLoadedLocation } from "../world/loadManager.js";
 import { createPlayerEntity, serializeEntity, isVisibleEntity } from "../world/entities.js";
 import { getCharacter } from "../character/create.js";
 import { get, run } from "../db.js";
+import { newItemId } from "../ids.js";
 import { findPath } from "../world/pathfinding.js";
 import * as entityStore from "../world/entityStore.js";
 import { loseXpOnDeath, getXpToNextLevel } from "../character/leveling.js";
@@ -114,6 +115,23 @@ export function handleEnterWorld(ws, msg) {
 
   const loc = getLoadedLocation(locationId);
   if (!loc) return err(ws, "Локация не найдена");
+
+  // Стартовый набор — 1 раз на персонажа (День 12): 5 зелий здоровья
+  const packRow = get(
+    `SELECT starter_pack_given FROM characters WHERE id = ?`,
+    character.id
+  );
+  if (packRow && packRow.starter_pack_given === 0) {
+    for (let i = 0; i < 5; i++) {
+      run(
+        `INSERT INTO items (id, owner_id, type, rarity, slot, level, equipped, created_at)
+         VALUES (?, ?, 'health_potion', 'common', 'consumable', 1, 0, ?)`,
+        newItemId(), character.id, Date.now()
+      );
+    }
+    run(`UPDATE characters SET starter_pack_given = 1 WHERE id = ?`, character.id);
+    logger.info(`Starter pack: 5 health potions → ${character.name}`);
+  }
 
   // Создаём сущность
   const entity = createPlayerEntity(character);
